@@ -1,41 +1,39 @@
 from fastmcp import Client
+from google import genai
 import asyncio
-import pandas as pd
+import os
+from dotenv import load_dotenv
 
-client = Client("http://localhost:8000/mcp")
+# Load environment variables from .env file
+load_dotenv()
+
+# Get GEMINI_API_KEY environment variable
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+# Initialize MCP and Gemini clients
+mcp_client = Client("http://localhost:8000/mcp")
+gemini_client = genai.Client(api_key=gemini_api_key)
 
 
 async def main():
-    async with client:
-        print(f"Connected: {client.is_connected()}")
+    async with mcp_client:
+        print(f"Connected: {mcp_client.is_connected()}")
 
-        # List the tools available from the MCP server
-        tools = await client.list_tools()
-        print("Available tools:", tools)
-        [print(f"   - {tool.name}: {tool.description}") for tool in tools]
-
-        # List the datasets available from the MCP server
-        datasets = await client.call_tool("available_datasets")
-        print(datasets.data)
-
-        # Call the `load_dataset` tool, specifying the subset of interest
-        loaded = await client.call_tool(
-            "load_dataset",
-            {
-                "dataset": "amsu",  # Doesn't need to be an exact dataset name
-                "time": "2021-01-01",
-                "vars": ["LAT", "LON", "BRITCSTC.TMBR_00001"],
-            },
+        # Have Gemini generate content based on our query and the available tools
+        response = await gemini_client.aio.models.generate_content(
+            model="gemini-2.0-flash",
+            # Example query to show that the client works
+            contents="List the available datasets. Then, access the first dataset filtered down to LAT and LON data from January 1, 2021 and show me the first few rows of data nicely formatted.",
+            config=genai.types.GenerateContentConfig(
+                # No randomness in response
+                temperature=0,
+                # Give Gemini access to the MCP server tools
+                tools=[mcp_client.session],
+            ),
         )
-        # Read the returned data as JSON
-        json_loaded = loaded.structured_content
 
-        # Make sure there is data to handle
-        if json_loaded is not None:
-            # Convert the list of dictionaries to a DataFrame
-            df = pd.DataFrame(json_loaded["result"])
-            # Print the first few rows to verify the data has been accessed
-            print(df.head())
+        # Display Gemini's output
+        print(response.text)
 
 
 # Run the client when this Python file runs

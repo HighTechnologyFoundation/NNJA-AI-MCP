@@ -1,7 +1,6 @@
 from fastmcp import FastMCP
 from nnja_ai import DataCatalog
 from datetime import date
-from typing import Any
 
 mcp = FastMCP("NNJA-AI-MCP")
 
@@ -12,8 +11,9 @@ def available_datasets() -> str:
     return f"Citation: NOAA NASA Joint Archive (NNJA) was accessed on {date.today()} from https://psl.noaa.gov/data/nnja_obs/\nDatasets in catalog: {DataCatalog().list_datasets()}"
 
 
+# TODO: Try to modify this to allow for variable filtering without exact column names
 @mcp.tool()
-def load_dataset(dataset: str, time: str, vars: list[str]) -> list[dict[str, Any]]:
+def load_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
     """Load the requested dataset into a list of dictionaries that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
@@ -22,7 +22,7 @@ def load_dataset(dataset: str, time: str, vars: list[str]) -> list[dict[str, Any
         vars (list[str]): A list of columns of interest to keep from the dataset.
 
     Returns:
-        list[dict[str, Any]]: A list of dictionaries that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
+        str: A JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
     """
     # Initialize the NNJA_AI dataset catalog
     catalog = DataCatalog()
@@ -30,16 +30,18 @@ def load_dataset(dataset: str, time: str, vars: list[str]) -> list[dict[str, Any
     # Search for valid dataset names using the input dataset name
     valid_datasets = catalog.search(dataset)
 
-    # Filter the dataset down to only the subset of interest
+    # Filter the valid dataset down to only the subset of interest
     filtered_dataset = catalog[valid_datasets[0].name].sel(
         time=f"{time} 00Z", variables=vars
     )
 
     # Load the chosen dataset into a pandas DataFrame
-    df = filtered_dataset.load_dataset(backend="pandas")
+    # NOTE: DataFrame size is reduced to fit into AI token limits, not sure how else to handle this yet
+    df = filtered_dataset.load_dataset(backend="pandas")[:1000]
+    print(df.shape)
 
     # Convert the DataFrame into a list of dictionaries, which can be returned from the MCP tool
-    dicts = df.to_dict(orient="records")
+    dicts = df.to_json(orient="records")
 
     # Return the list of dictionaries
     return dicts
@@ -47,4 +49,5 @@ def load_dataset(dataset: str, time: str, vars: list[str]) -> list[dict[str, Any
 
 # Run the server when this Python file runs
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="127.0.0.1", port=8000)
+    # Run the MCP server at http://0.0.0.0:8000/mcp
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
