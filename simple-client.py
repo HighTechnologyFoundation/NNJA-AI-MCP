@@ -1,6 +1,7 @@
 from fastmcp import Client
 import asyncio
 import pandas as pd
+import matplotlib.pyplot as plt
 from io import StringIO
 
 mcp_client = Client("http://localhost:8000/mcp")
@@ -32,11 +33,20 @@ async def main():
         json_loaded = StringIO(loaded.data)
 
         # Make sure there is data to handle
-        if json_loaded is not None:
+        if json_loaded:
             # Convert the list of dictionaries to a DataFrame
             df = pd.read_json(json_loaded, orient="records")
             # Print the first few rows to verify the data has been accessed
             print(df.head())
+
+            # Plot the data obtained from the server
+            plot_col = "BRITCSTC.TMBR_00001"
+            plt.figure(figsize=(12, 8))
+            plt.scatter(df["LON"], df["LAT"], s=15, c=df[plot_col])
+            plt.title(f"AMSU Brightness Temperature for {plot_col}")
+            plt.xlabel("Longitude")
+            plt.ylabel("Latitude")
+            plt.show()
 
 
 # Run the client when this Python file runs

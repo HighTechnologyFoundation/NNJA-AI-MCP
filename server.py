@@ -1,6 +1,8 @@
 from fastmcp import FastMCP
 from nnja_ai import DataCatalog
 from datetime import date
+import gzip
+import base64
 
 mcp = FastMCP("NNJA-AI-MCP")
 
@@ -14,7 +16,7 @@ def available_datasets() -> str:
 # TODO: Try to modify this to allow for variable filtering without exact column names
 @mcp.tool()
 def load_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
-    """Load the requested dataset into a list of dictionaries that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
+    """Load the requested dataset into a base 64 utf-8 compressed list of dictionaries that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
@@ -22,7 +24,7 @@ def load_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
         vars (list[str]): A list of columns of interest to keep from the dataset.
 
     Returns:
-        str: A JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
+        str: A compressed JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
     """
     # Initialize the NNJA_AI dataset catalog
     catalog = DataCatalog()
@@ -36,15 +38,19 @@ def load_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
     )
 
     # Load the chosen dataset into a pandas DataFrame
-    # NOTE: DataFrame size is reduced to fit into AI token limits, not sure how else to handle this yet
-    df = filtered_dataset.load_dataset(backend="pandas")[:1000]
-    print(df.shape)
+    # NOTE: DataFrame size is reduced to fit into AI free-tier token limits, not sure how else to handle this yet
+    df = filtered_dataset.load_dataset(backend="pandas")[::50]
+    print(df.shape)  # Print new rows x columns amounts
 
-    # Convert the DataFrame into a list of dictionaries, which can be returned from the MCP tool
+    # Convert the DataFrame into list of dictionaries, which can be returned from the MCP tool
     dicts = df.to_json(orient="records")
+    if dicts:
+        compressed_bytes = gzip.compress(dicts.encode("utf-8"))
+    else:
+        return "Error!"
 
-    # Return the list of dictionaries
-    return dicts
+    # Return the compressed list of dictionaries
+    return base64.b64encode(compressed_bytes).decode("utf-8")
 
 
 # Run the server when this Python file runs
