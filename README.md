@@ -8,6 +8,8 @@ Brightband reprocessed NNJA data (NNJA-AI).
 This repository also includes 2 example clients that connect to the
 MCP server and test out the available tools.
 
+Make sure to install all dependencies before running the server or clients.
+
 ## Running the Server
 
 The server file, `server.py`, can be run through Docker (preferred)
@@ -42,13 +44,18 @@ docker run -p 8000:8000 mcp-server
   python3 server.py
   ```
 
-## Running the Client
+## Running the Clients
 
-There are 2 example client files provided. `client.py` runs a query through
-Gemini, which accesses the tools itself and provides the requested output.
-`simple-client.py` runs the MCP tools manually and shows how the results
-of the `load_dataset` function can be converted into a pandas DataFrame.
-The client files can be run directly in a separate terminal, as shown below:
+There are 2 example client files provided:
+
+- `client.py` runs a query through Gemini, which accesses some of
+the tools itself and provides the requested output. Note that
+the AI model's input and output token limits restrict how
+much data can be transferred through them.
+- `simple-client.py` runs all of the MCP tools manually and shows how the
+results of the `load_dataset` and `analyze_dataset` tools can be converted
+into a pandas DataFrame. The client files can be run directly in a
+separate terminal, as shown below:
 
 ### Running `client.py`
 
