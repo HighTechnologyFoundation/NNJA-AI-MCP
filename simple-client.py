@@ -20,9 +20,10 @@ async def main():
         datasets = await mcp_client.call_tool("available_datasets")
         print(datasets.data)
 
-        # Call the `load_dataset` tool, specifying the subset of interest
+        # ---------- load_data_sample ----------
+        # Call the `load_data_sample` tool, specifying the subset of interest
         loaded = await mcp_client.call_tool(
-            "load_dataset",
+            "load_data_sample",
             {
                 "dataset": "amsu",  # Doesn't need to be an exact dataset name
                 "time": "2021-01-01",
@@ -30,16 +31,17 @@ async def main():
                     "Latitude",
                     "LON",
                     "brightness temp",
-                ],
+                ],  # No `rows` argument so the sample will be the full data
             },
         )
 
         # Plot the data obtained from the server
         plot_json_data(loaded.data)
 
-        # Call the `analyze_dataset` tool, specifying the subset of interest
+        # ---------- summarize_dataset ----------
+        # Call the `summarize_dataset` tool, specifying the subset of interest
         stats = await mcp_client.call_tool(
-            "analyze_dataset",
+            "summarize_dataset",
             {
                 "dataset": "amsu",  # Doesn't need to be an exact dataset name
                 "time": "2021-01-01",
@@ -47,6 +49,10 @@ async def main():
                     "Latitude",
                     "LON",
                     "brightness temp",
+                    "brightness temp 2",
+                    "brightness temp 3",
+                    "brightness temp 4",
+                    "brightness temp 5",
                 ],
             },
         )
@@ -58,7 +64,37 @@ async def main():
         stats_df = pd.read_json(json_stats)
 
         # Print the accessed statistical data
+        print("Descriptive Statistics:")
         print(stats_df)
+
+        # ---------- correlation_matrix_dataset ----------
+        # Call the `correlation_matrix_dataset` tool, specifying the subset of interest
+        stats = await mcp_client.call_tool(
+            "correlation_matrix_dataset",
+            {
+                "dataset": "amsu",  # Doesn't need to be an exact dataset name
+                "time": "2021-01-01",
+                "vars": [  # Variable names don't need to be exact
+                    "Latitude",
+                    "LON",
+                    "brightness temp",
+                    "brightness temp 2",
+                    "brightness temp 3",
+                    "brightness temp 4",
+                    "brightness temp 5",
+                ],
+            },
+        )
+
+        # Read the returned data as a literal JSON string
+        json_correlation_matrix = StringIO(stats.data)
+
+        # Convert the list of dictionaries to a DataFrame
+        correlation_matrix_df = pd.read_json(json_correlation_matrix)
+
+        # Print the accessed correlation matrix DataFrame
+        print("Correlation Matrix:")
+        print(correlation_matrix_df)
 
 
 # Function to plot data from JSON format
@@ -74,7 +110,7 @@ def plot_json_data(json_data: str):
     # Plot the data obtained from the query
     plot_col = df.columns[2]
     plt.figure(figsize=(12, 8))
-    plt.scatter(df["LON"], df["LAT"], s=15, c=df[plot_col])
+    plt.scatter(df["LON"], df["LAT"], s=2, c=df[plot_col])
     plt.title(f"AMSU Brightness Temperature for {plot_col}")
     plt.xlabel("Longitude")
     plt.ylabel("Latitude")

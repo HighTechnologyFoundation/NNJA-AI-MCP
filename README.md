@@ -53,9 +53,10 @@ the tools itself and provides the requested output. Note that
 the AI model's input and output token limits restrict how
 much data can be transferred through them.
 - `simple-client.py` runs all of the MCP tools manually and shows how the
-results of the `load_dataset` and `analyze_dataset` tools can be converted
-into a pandas DataFrame. The client files can be run directly in a
-separate terminal, as shown below:
+results of the `load_dataset`, `analyze_dataset`, and
+`correlation_matrix_dataset` tools can be converted into a pandas DataFrame.
+
+The client files can be run directly in a separate terminal, as shown below:
 
 ### Running `client.py`
 
