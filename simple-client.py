@@ -39,9 +39,9 @@ async def main():
         plot_json_data(loaded.data)
 
         # ---------- summarize_dataset ----------
-        # Call the `summarize_dataset` tool, specifying the subset of interest
+        # Call the `descriptive_stats_dataset` tool, specifying the subset of interest
         stats = await mcp_client.call_tool(
-            "summarize_dataset",
+            "descriptive_stats_dataset",
             {
                 "dataset": "amsu",  # Doesn't need to be an exact dataset name
                 "time": "2021-01-01",

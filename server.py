@@ -28,6 +28,40 @@ def available_datasets() -> str:
 
 
 @mcp.tool()
+def dataset_info(dataset: str) -> str:
+    """Get a summary of the requested dataset.
+
+    Args:
+        dataset (str): The name of the dataset to describe, which will be used to search for the most similar valid dataset name.
+
+    Returns:
+        str: A string containing a summary of the requested dataset.
+    """
+    # Search for the most similar valid dataset available
+    chosen_dataset = _fuzzy_dataset_search(dataset)
+
+    # Return a summary of the dataset
+    return chosen_dataset.info()
+
+
+@mcp.tool()
+def variables_info(dataset: str) -> str:
+    """Get a list of variables and their descriptions from the requested dataset.
+
+    Args:
+        dataset (str): The name of the dataset to describe, which will be used to search for the most similar valid dataset name.
+
+    Returns:
+        str: A string containing a list of the variables in the requested dataset and their descriptions.
+    """
+    # Search for the most similar valid dataset available
+    chosen_dataset = _fuzzy_dataset_search(dataset)
+
+    # Return a list of variables and their descriptions from the dataset
+    return str(chosen_dataset.list_variables())
+
+
+@mcp.tool()
 def load_data_sample(
     dataset: str, time: str, vars: list[str], rows: int = 100
 ) -> str | None:
@@ -53,7 +87,7 @@ def load_data_sample(
 
 
 @mcp.tool()
-def summarize_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
+def descriptive_stats_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
     """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
@@ -121,14 +155,8 @@ def _access_dataset(
     Returns:
         DataFrame: A pandas DataFrame of the requested dataset, sliced down to the subset of interest.
     """
-    # Initialize the NNJA_AI dataset catalog
-    catalog = DataCatalog()
-
-    # Search for valid dataset names using the input dataset name
-    valid_datasets = catalog.search(dataset)
-
-    # Get valid dataset
-    chosen_dataset = catalog[valid_datasets[0].name]
+    # Search for the most similar valid dataset available
+    chosen_dataset = _fuzzy_dataset_search(dataset)
 
     # Search for valid variable names using the input variable list
     valid_vars = _fuzzy_variable_search(chosen_dataset, vars)
@@ -150,6 +178,26 @@ def _access_dataset(
 
     # Return the DataFrame
     return DataFrame(df)
+
+
+# Internal function for fuzzy searching of dataset names
+def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
+    """Uses fuzzy matching to get valid dataset names.
+    
+    Args:
+        dataset (str): The name of the dataset to search for.
+
+    Returns:
+        str: The most similar valid dataset name.
+    """
+    # Initialize the NNJA_AI dataset catalog
+    catalog = DataCatalog()
+
+    # Search for valid dataset names using the input dataset name
+    valid_datasets = catalog.search(dataset)
+
+    # Get and return a valid dataset
+    return catalog[valid_datasets[0].name]
 
 
 # Internal function for fuzzy searching of dataset variables
