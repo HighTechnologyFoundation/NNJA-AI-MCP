@@ -26,7 +26,7 @@ async def main():
             contents="""List the available datasets. Then, access the first dataset 
                 filtered down to LAT, LON, and brightness temp 1, 2, 3, 4, and 5 data 
                 from January 1, 2021 and summarize the data for me. Compare the 
-                brightness temp datas and provide me their stats.
+                brightness temp datum and provide me their stats.
                 """,
             config=genai.types.GenerateContentConfig(
                 # Reduce randomness in response

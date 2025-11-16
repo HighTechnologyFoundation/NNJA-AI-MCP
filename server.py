@@ -29,7 +29,7 @@ def available_datasets() -> str:
 
 @mcp.tool()
 def load_data_sample(
-    dataset: str, time: str, vars: list[str], rows: int | None = None
+    dataset: str, time: str, vars: list[str], rows: int = 100
 ) -> str | None:
     """Load the requested dataset into a JSON-format list of dictionaries that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
 
@@ -37,7 +37,7 @@ def load_data_sample(
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
-        rows (int, optional): The number of rows of data to include. Defaults to None.
+        rows (int, optional): The number of rows of data to include. Defaults to 100.
 
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
@@ -105,7 +105,7 @@ def correlation_matrix_dataset(dataset: str, time: str, vars: list[str]) -> str 
 
 # Internal function for accessing a dataset
 def _access_dataset(
-    dataset: str, time: str, vars: list[str], rows: int | None = None
+    dataset: str, time: str, vars: list[str], rows: int = 100
 ) -> DataFrame:
     """Access the requested dataset as a pandas DataFrame, sliced down to the subset of interest.
 
@@ -113,7 +113,7 @@ def _access_dataset(
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
-        rows (int, optional): The number of rows to sample from the dataset. Defaults to None.
+        rows (int, optional): The number of rows to sample from the dataset. Defaults to 100.
 
     Returns:
         DataFrame: A pandas DataFrame of the requested dataset, sliced down to the subset of interest.
@@ -140,11 +140,10 @@ def _access_dataset(
     print("Original data shape (rows, columns):", df.shape)
 
     # NOTE: DataFrame size must be reduced to fully fit into AI free-tier input and output token limits
-    if rows is not None:
-        df = df[:rows]
+    df = df[:rows]
 
-        # Print new rows x columns amounts
-        print("Sliced data shape (rows, columns):", df.shape)
+    # Print new rows x columns amounts
+    print("Sliced data shape (rows, columns):", df.shape)
 
     # Return the DataFrame
     return DataFrame(df)
