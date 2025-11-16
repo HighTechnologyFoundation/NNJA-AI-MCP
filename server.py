@@ -3,7 +3,7 @@ from nnja_ai import DataCatalog, NNJADataset
 from datetime import date
 from fuzzywuzzy import process
 import re
-
+from typing import Literal
 from pandas import DataFrame
 
 mcp = FastMCP("NNJA-AI-MCP")
@@ -79,13 +79,16 @@ def summarize_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
 
 
 @mcp.tool()
-def correlation_matrix_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
+def correlation_matrix_dataset(
+    dataset: str, time: str, vars: list[str], corr_method: Literal["pearson", "kendall", "spearman"] = "pearson"
+) -> str | None:
     """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
+        corr_method (Literal["pearson", "kendall", "spearman"], optional): The correlation method to use. Must be one of "pearson", "kendall", or "spearman". Defaults to "pearson".
 
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the correlation matrix of the loaded dataset, filtered down to the subset of interest.
@@ -94,7 +97,7 @@ def correlation_matrix_dataset(dataset: str, time: str, vars: list[str]) -> str 
     df = _access_dataset(dataset, time, vars)
 
     # Create a DataFrame of the correlation matrix of the data
-    correlation_matrix = df.corr()
+    correlation_matrix = df.corr(method=corr_method)
 
     # Convert the correlation matrix DataFrame into a JSON string, which can be returned from the MCP tool
     dicts = correlation_matrix.to_json()
