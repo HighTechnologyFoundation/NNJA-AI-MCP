@@ -1,3 +1,10 @@
+'''
+pip install fastmcp 
+pip install git+https://github.com/brightbandtech/nnja-ai.git
+pip install fuzzywuzzy
+pip install pandas
+'''
+
 from fastmcp import FastMCP
 from nnja_ai import DataCatalog, NNJADataset
 from datetime import date
@@ -15,7 +22,8 @@ def cite_data() -> str:
 
     Returns:
         str: A string containing a data citation."""
-    return f"NOAA NASA Joint Archive (NNJA) was accessed on {date.today()} from https://psl.noaa.gov/data/nnja_obs/"
+    return ("NOAA NASA Joint Archive (NNJA) was accessed on "
+            f"{date.today()} from https://psl.noaa.gov/data/nnja_obs/")
 
 
 @mcp.tool()
@@ -31,7 +39,9 @@ def available_datasets() -> str:
 def load_data_sample(
     dataset: str, time: str, vars: list[str], rows: int | None = None
 ) -> str | None:
-    """Load the requested dataset into a JSON-format list of dictionaries that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
+    """Load the requested dataset into a JSON-format list of dictionaries that 
+    can be easily converted to a pandas DataFrame, sliced down to the subset 
+    of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
@@ -45,16 +55,15 @@ def load_data_sample(
     # Access the requested dataset (subsample must be very large if used by AI)
     df = _access_dataset(dataset, time, vars, rows)
 
-    # Convert the DataFrame into a list of dictionaries, which can be returned from the MCP tool
-    dicts = df.to_json(orient="records")
-
-    # Return the JSON formatted data
-    return dicts
+    # Convert the DataFrame into a list of dictionaries, which can be returned
+    return df.to_json(orient="records")
 
 
 @mcp.tool()
 def summarize_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
-    """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
+    """Analyze the columns wanted from the requested dataset and return the 
+    descriptive statistics as a JSON string that can be easily converted to 
+    a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
@@ -62,9 +71,13 @@ def summarize_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
 
     Returns:
-        str: A JSON string that can be easily converted to a pandas DataFrame of the descriptive statistics of the loaded dataset, filtered down to the subset of interest.
+        str: A JSON string that can be easily converted to a pandas DataFrame of 
+        the descriptive statistics of the loaded dataset, filtered down to the 
+        subset of interest.
     """
-    print("vars:", vars)
+    # KJW: Should not output to console on server
+    # print("vars:", vars)
+
     # Access the requested dataset
     df = _access_dataset(dataset, time, vars)
 
@@ -80,7 +93,9 @@ def summarize_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
 
 @mcp.tool()
 def correlation_matrix_dataset(dataset: str, time: str, vars: list[str]) -> str | None:
-    """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
+    """Analyze the columns wanted from the requested dataset and return the 
+    correlation matrix as a JSON string that can be easily converted to a 
+    pandas DataFrame, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
@@ -96,11 +111,8 @@ def correlation_matrix_dataset(dataset: str, time: str, vars: list[str]) -> str 
     # Create a DataFrame of the correlation matrix of the data
     correlation_matrix = df.corr()
 
-    # Convert the correlation matrix DataFrame into a JSON string, which can be returned from the MCP tool
-    dicts = correlation_matrix.to_json()
-
-    # Return the JSON string representation of the correlation matrix
-    return dicts
+    # Convert the correlation matrix DataFrame into a JSON string, which can be returned
+    return correlation_matrix.to_json()
 
 
 # Internal function for accessing a dataset
@@ -110,7 +122,8 @@ def _access_dataset(
     """Access the requested dataset as a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
-        dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
+        dataset (str): The name of the dataset to load, which will be used to 
+        search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         rows (int, optional): The number of rows to sample from the dataset. Defaults to None.
@@ -134,20 +147,14 @@ def _access_dataset(
     filtered_dataset = chosen_dataset.sel(time=f"{time}", variables=valid_vars)
 
     # Load the chosen dataset into a pandas DataFrame
-    df = filtered_dataset.load_dataset(backend="pandas")
+    df:DataFrame = filtered_dataset.load_dataset(backend="pandas")
 
     # Print original data rows x columns amounts
-    print("Original data shape (rows, columns):", df.shape)
+    # KJW: Should not output to console on server
+    # print("Original data shape (rows, columns):", df.shape)
 
     # NOTE: DataFrame size must be reduced to fully fit into AI free-tier input and output token limits
-    if rows is not None:
-        df = df[:rows]
-
-        # Print new rows x columns amounts
-        print("Sliced data shape (rows, columns):", df.shape)
-
-    # Return the DataFrame
-    return DataFrame(df)
+    return df[:rows] if rows is not None else df
 
 
 # Internal function for fuzzy searching of dataset variables
@@ -174,13 +181,13 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
             # If the variable name has a number, include the number in the description
             if match:
                 # Append the number to the end of the description (without leading 0s)
-                dataset_vars[var.description + " " + str(int(match.group(0)))] = var.id
+                dataset_vars[f"{var.description} {str(int(match.group(0)))}"] = var.id
             else:
                 # Store variables directly
                 dataset_vars[var.description] = var.id
 
     # Initialize empty list to store valid variables
-    variables = []
+    variables:list[str] = []
 
     # Search through the valid variables for those wanted
     for var in var_list:
@@ -188,17 +195,15 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
         if var in dataset_vars.values():
             variables.append(var)
 
-        # Else, fuzzy match to find a valid variable
-        else:
+        else: # fuzzy match to find a valid variable
             # fuzzy_var is a tuple of form: (best_match, match_score)
             fuzzy_var = process.extractOne(var, dataset_vars.keys())
 
-            # If fuzzy_var is not None (if there is any fuzzy match), ...
+            # if there is any fuzzy match
             if fuzzy_var:
                 # Add the fuzzy-matched variable name
                 variables.append(dataset_vars[fuzzy_var[0]])
 
-    # Return valid, fuzzy-matched variables
     return variables
 
 

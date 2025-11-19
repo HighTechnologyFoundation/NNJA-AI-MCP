@@ -1,3 +1,9 @@
+'''
+pip install fastmcp
+pip install pandas
+pip install matplotlib
+'''
+
 from fastmcp import Client
 import asyncio
 import pandas as pd
@@ -11,14 +17,20 @@ async def main():
     async with mcp_client:
         print(f"Connected: {mcp_client.is_connected()}")
 
+        print()
+
         # List the tools available from the MCP server
         tools = await mcp_client.list_tools()
         print("Available tools:")
         [print(f"- {tool.name}: {tool.description}\n") for tool in tools]
 
+        print()
+
         # List the datasets available from the MCP server
         datasets = await mcp_client.call_tool("available_datasets")
         print(datasets.data)
+
+        print()
 
         # ---------- load_data_sample ----------
         # Call the `load_data_sample` tool, specifying the subset of interest
@@ -66,6 +78,8 @@ async def main():
         # Print the accessed statistical data
         print("Descriptive Statistics:")
         print(stats_df)
+
+        print()
 
         # ---------- correlation_matrix_dataset ----------
         # Call the `correlation_matrix_dataset` tool, specifying the subset of interest
