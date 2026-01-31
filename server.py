@@ -76,7 +76,7 @@ def load_data_sample(
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
     """
-    # Access the requested dataset (subsample must be very large if used by AI)
+    # Access the requested dataset (`rows` must be reasonably small if used by AI)
     df = _access_dataset(dataset, time, vars, rows)
 
     # Convert the DataFrame into a list of dictionaries, which can be returned from the MCP tool
@@ -114,7 +114,10 @@ def descriptive_stats_dataset(dataset: str, time: str, vars: list[str]) -> str |
 
 @mcp.tool()
 def correlation_matrix_dataset(
-    dataset: str, time: str, vars: list[str], corr_method: Literal["pearson", "kendall", "spearman"] = "pearson"
+    dataset: str,
+    time: str,
+    vars: list[str],
+    corr_method: Literal["pearson", "kendall", "spearman"] = "pearson",
 ) -> str | None:
     """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
 
@@ -183,7 +186,7 @@ def _access_dataset(
 # Internal function for fuzzy searching of dataset names
 def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
     """Uses fuzzy matching to get valid dataset names.
-    
+
     Args:
         dataset (str): The name of the dataset to search for.
 
@@ -255,4 +258,5 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
 # Run the server when this Python file runs
 if __name__ == "__main__":
     # Run the MCP server at http://0.0.0.0:8000/mcp
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+    # mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+    mcp.run(transport="stdio")
