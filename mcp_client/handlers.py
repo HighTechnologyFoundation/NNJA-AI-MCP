@@ -18,18 +18,18 @@ class GeminiQueryHandler:
                 "Error: GEMINI_API_KEY environment variable not set",
             )
         self.gemini = genai.Client(api_key=api_key)
-
-    async def process_query(self, query: str) -> str:
-        """Process a query using Gemini and available MCP tools."""
-        # Get initial model's response and decision on tool calls
-        # messages = [{"role": "user", "content": query}]
-        response = await self.gemini.aio.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents=query,
+        self.chat = self.gemini.aio.chats.create(
+            model="gemini-2.5-flash",
             config=genai.types.GenerateContentConfig(
                 temperature=0,
                 tools=[self.client_session],
             ),
         )
+
+    async def process_query(self, query: str) -> str:
+        """Process a query using Gemini and available MCP tools."""
+        # Get initial model's response and decision on tool calls
+        # messages = [{"role": "user", "content": query}]
+        response = await self.chat.send_message(query)
 
         return "Assistant: " + str(response.text)

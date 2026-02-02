@@ -46,8 +46,10 @@ docker run -p 8000:8000 mcp-server
 
 ## Running the Clients
 
-There are 2 example client files provided:
+There are 3 example client files provided:
 
+- `mcp_client/` directory contains a CLI-based client, allowing
+a user to chat with Gemini and giving it access to the MCP tools.
 - `client.py` runs a query through Gemini, which accesses some of
 the tools itself and provides the requested output. Note that
 the AI model's input and output token limits restrict how
@@ -57,6 +59,21 @@ results of the `load_dataset`, `analyze_dataset`, and
 `correlation_matrix_dataset` tools can be converted into a pandas DataFrame.
 
 The client files can be run directly in a separate terminal, as shown below:
+
+### Running `mcp_client/`
+
+- Using uv:
+
+```bash
+# Setting up the client
+uv sync
+source .venv/bin/activate
+
+# Using the client
+mcp-client --help              # Shows help menu
+mcp-client --members server.py # Lists the available tools, prompts, and resources
+mcp-client --chat server.py    # Runs the AI-powered chat
+```
 
 ### Running `client.py`
 
