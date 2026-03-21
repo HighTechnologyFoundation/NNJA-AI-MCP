@@ -18,6 +18,12 @@ def cite_data() -> str:
     return f"NOAA NASA Joint Archive (NNJA) was accessed on {date.today()} from https://psl.noaa.gov/data/nnja_obs/"
 
 
+@mcp.prompt()
+def cite() -> str:
+    """Cite the NNJA-AI dataset."""
+    return "Cite the NNJA-AI dataset as having been accessed today."
+
+
 @mcp.tool()
 def available_datasets() -> str:
     """Get a list of available NNJA-AI datasets.
@@ -25,6 +31,15 @@ def available_datasets() -> str:
     Returns:
         str: A string listing the available NNJA-AI datasets."""
     return f"{DataCatalog().list_datasets()}"
+
+
+@mcp.resource("data://datasets", mime_type="application/json")
+def list_datasets() -> list[str]:
+    """Get a list of available NNJA-AI datasets. Used for auto-completion in the CLI client.
+
+    Returns:
+        list[str]: A list of available NNJA-AI dataset names."""
+    return DataCatalog().list_datasets()
 
 
 @mcp.tool()
