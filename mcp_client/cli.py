@@ -8,7 +8,9 @@ def parse_args():
     parser.add_argument(
         "server_path",
         type=pathlib.Path,
-        help="path to the MCP server script",
+        nargs="?",
+        default=pathlib.Path("server.py"),
+        help="path to the MCP server script (default: server.py)",
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
