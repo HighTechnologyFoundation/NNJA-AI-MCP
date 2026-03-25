@@ -14,7 +14,8 @@ def cite_data() -> str:
     """Get the appropriate citation for the data accessed.
 
     Returns:
-        str: A string containing a data citation."""
+        str: A string containing a data citation.
+    """
     return f"NOAA NASA Joint Archive (NNJA) was accessed on {date.today()} from https://psl.noaa.gov/data/nnja_obs/"
 
 
@@ -29,7 +30,8 @@ def available_datasets() -> str:
     """Get a list of available NNJA-AI datasets.
 
     Returns:
-        str: A string listing the available NNJA-AI datasets."""
+        str: A string listing the available NNJA-AI datasets.
+    """
     return f"{DataCatalog().list_datasets()}"
 
 
@@ -38,7 +40,8 @@ def list_datasets() -> list[str]:
     """Get a list of available NNJA-AI datasets. Used for auto-completion in the CLI client.
 
     Returns:
-        list[str]: A list of available NNJA-AI dataset names."""
+        list[str]: A list of available NNJA-AI dataset names.
+    """
     return DataCatalog().list_datasets()
 
 
