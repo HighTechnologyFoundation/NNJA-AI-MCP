@@ -21,7 +21,7 @@ async def main():
 
         # Have Gemini generate content based on our query and the available tools
         response = await gemini_client.aio.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             # Example query to show that the client works
             contents="""List the available datasets. Then, access the first dataset 
                 filtered down to LAT, LON, and brightness temp 1, 2, 3, 4, and 5 data 
