@@ -5,6 +5,7 @@ from fuzzywuzzy import process
 import re
 from typing import Literal
 from pandas import DataFrame
+import os
 
 mcp = FastMCP("NNJA-AI-MCP")
 
@@ -275,6 +276,12 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
 
 # Run the server when this Python file runs
 if __name__ == "__main__":
-    # Run the MCP server at http://0.0.0.0:8000/mcp
-    # mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
-    mcp.run(transport="stdio")
+    # Check if the server should run as an HTTP server (for Docker)
+    # or as a stdio server for the other clients
+    transport = os.getenv("MCP_TRANSPORT", "stdio").lower()
+
+    if transport == "http":
+        # Run the MCP server at http://0.0.0.0:8000/mcp
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+    else:
+        mcp.run(transport="stdio")

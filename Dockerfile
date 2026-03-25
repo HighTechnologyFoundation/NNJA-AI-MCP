@@ -18,5 +18,8 @@ COPY server.py .
 # Expose the port the server runs on
 EXPOSE 8000
 
+# Set the environment variable so the server knows it's in a Docker container
+ENV MCP_TRANSPORT=http
+
 # Command to run the server
 CMD ["uv", "run", "server.py"]
