@@ -1,107 +1,101 @@
 # NNJA-AI-MCP
 
-This repository contains code to create an Model-Context Protocol (MCP) server,
-allowing Large Language Models (LLMs) to access data from the NOAA NASA
-Joint Archive (NNJA) datasets. Specifically, the server provides access to the
+[![Python Version](https://img.shields.io/badge/python-3.13+-blue.svg)](https://python.org)
+[![MCP](https://img.shields.io/badge/MCP-Model--Context--Protocol-orange)](https://modelcontextprotocol.io)
+
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server
+implementation for accessing **NOAA NASA Joint Archive (NNJA)** datasets.
+This server enables LLMs to programatically explore, load, and analyze
 Brightband reprocessed NNJA data (NNJA-AI).
 
-This repository also includes 2 example clients that connect to the
-MCP server and test out the available tools.
+## Available Tools
 
-Make sure to install all dependencies before running the server or clients.
+The MCP server exposes the following tools to connected LLMs:
 
-## Running the Server
+| Tool | Description |
+| :--- | :--- |
+| `available_datasets` | Lists all available NNJA-AI datasets. |
+| `dataset_info` | Provides a summary/metadata for a specific dataset. |
+| `variables_info` | Lists variables and descriptions within a dataset. |
+| `load_data_sample` | Loads a subset of data as a JSON/DataFrame-ready format. |
+| `descriptive_stats_dataset` | Returns statistical summaries (mean, std, etc.). |
+| `correlation_matrix_dataset`| Computes correlation matrices for dataset variables. |
+| `cite_data` | Generates the correct citation for the data accessed. |
 
-The server file, `server.py`, can be run through Docker (preferred)
-or directly by running the file.
+> Pro Tip: The server uses Fuzzy Matching for dataset and variable names. If you
+(or the AI) make a typo, the server will automatically find the closest valid match!
 
-### Running the Server with Docker
+## Quick Start
 
-Note that in order to run the server with Docker, you will need to have installed:
+### Prerequisites
 
-- docker
-- docker-buildx (replaces Docker's legacy builder)
+- [uv](https://github.com/astral-sh/uv) (Highly recommended for dependency management)
+- A Google Gemini API Key (for the AI-powered clients)
+
+### Installation & Setup
+
+1. Clone the repository
+
+1. Configure environment variables:
+
+    ```bash
+    cp .env.template .env
+    # Open .env and add your GEMINI_API_KEY:
+    # GEMINI_API_KEY=your_key_here
+    ```
+
+1. Install dependencies (and the CLI client):
+
+    ```bash
+    uv sync
+    ```
+
+1. Run the AI chat
+
+    The fastest way to test the server is with the built-in interactive CLI:
+
+    ```bash
+    uv run mcp-client --chat
+
+    # Alternatively, you can activate the virtual environment and then run the CLI:
+    source .venv/bin/activate      # Linux/macOS
+    source .venv\Scripts\activate  # Windows
+    mcp-client --chat
+    ```
+
+## Example Clients
+
+This repository includes three different ways to interact with the MCP server:
+
+1. `mcp-client/` (CLI): An interactive, AI-powered chat interface. Best for
+natural language exploration of the data.
+1. `client.py`: A scripted AI agent that performs a specific query and exits.
+Useful for seeing how to integrate MCP into your own Python automation.
+1. `simple-client.py`: A "manual" client that calls MCP tools directly without
+an LLM. Use this to see how to programmatically convert tool outputs into
+Pandas DataFrames for traditional data science.
+
+## Running with Docker
+
+The server can be containerized for easier deployment or integration
+with other MCP clients.
 
 ```bash
-# Step 1: Build the Docker image
-docker build -t mcp-server .
-
-# Step 2: Run the Docker container
-docker run -p 8000:8000 mcp-server
+docker build -t mcp-server .        # Build the Docker image
+docker run -p 8000:8000 mcp-server  # Run the Docker container
 ```
 
-### Running the Server File Directly
+## Project Structure
 
-- Using uv:
-
-  ```bash
-  uv run server.py
-  ```
-
-- Using python:
-
-  ```bash
-  python3 server.py
-  ```
-
-## Running the Clients
-
-There are 3 example client files provided:
-
-- `mcp_client/` directory contains a CLI-based client, allowing
-a user to chat with Gemini and giving it access to the MCP tools.
-- `client.py` runs a query through Gemini, which accesses some of
-the tools itself and provides the requested output. Note that
-the AI model's input and output token limits restrict how
-much data can be transferred through them.
-- `simple-client.py` runs all of the MCP tools manually and shows how the
-results of the `load_dataset`, `analyze_dataset`, and
-`correlation_matrix_dataset` tools can be converted into a pandas DataFrame.
-
-The client files can be run directly in a separate terminal, as shown below:
-
-### Running `mcp_client/`
-
-- Using uv:
-
-```bash
-# Setting up the client
-uv sync
-source .venv/bin/activate
-
-# Using the client
-mcp-client --help              # Shows help menu
-mcp-client --members server.py # Lists the available tools, prompts, and resources
-mcp-client --chat server.py    # Runs the AI-powered chat
+```text
+.
+├── mcp_client/       # Source code for the CLI chat interface
+├── server.py         # The core MCP Server (Tools, Resources, Prompts)
+├── client.py         # Scripted AI agent example
+├── simple-client.py  # Manual tool-use & Pandas integration example
+├── Dockerfile        # Container configuration
+└── pyproject.toml    # Project dependencies and CLI entry points
 ```
-
-### Running `client.py`
-
-- Using uv:
-
-  ```bash
-  uv run client.py
-  ```
-
-- Using python:
-
-  ```bash
-  python3 client.py
-  ```
-
-### Running `simple-client.py`
-
-- Using uv:
-
-  ```bash
-  uv run simple-client.py
-  ```
-
-- Using python:
-
-  ```bash
-  python3 simple-client.py
-  ```
 
 ## NNJA-AI Data Citation
 
