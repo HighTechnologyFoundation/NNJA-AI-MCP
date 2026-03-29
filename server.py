@@ -80,23 +80,6 @@ def variables_info(dataset: str) -> str:
     return str(chosen_dataset.list_variables())
 
 
-@mcp.resource("data://{dataset}/schema")
-def dataset_schema(dataset: str) -> list[str]:
-    """Get the schema/variable list for a specific dataset.
-
-    Args:
-        dataset: The name of the dataset to describe, fuzzy-matched.
-
-    Returns:
-        list[str]: A list of the variables in the requested dataset and their descriptions.
-    """
-    # Search for the most similar valid dataset available
-    chosen_dataset = _fuzzy_dataset_search(dataset)
-
-    # Return a list of variables from the dataset
-    return list(chosen_dataset.list_variables().keys())
-
-
 @mcp.tool()
 def load_data_sample(
     dataset: str, time: str, vars: list[str], rows: int = 100
