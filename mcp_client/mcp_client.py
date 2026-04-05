@@ -10,30 +10,31 @@ from mcp_client.handlers import GeminiQueryHandler
 
 
 class MCPClient:
-    """
-    Terminal-based MCP client to interact with MCP server.
-    """
+    """Terminal-based MCP client to interact with an MCP server."""
 
     client_session: ClassVar[ClientSession]
 
     # Initializes the server executable path and an exit stack
     def __init__(self, server_path: str):
         self.server_path = server_path
+
+        # Simplifies managing multiple async context managers
         self.exit_stack = AsyncExitStack()
 
-    # Runs when the `async with` statement enters the context
     async def __aenter__(self) -> Self:
+        """Establishes the server connection when entering `async with`."""
         cls = type(self)
         cls.client_session = await self._connect_to_server()
         return self
 
-    # Runs when the `async with` statement exits
     async def __aexit__(self, *_) -> None:
+        """Cleans up the server connection and exit stack upon exit."""
         await self.exit_stack.aclose()
 
-    # Establishes a connection between the client and the server
     async def _connect_to_server(self) -> ClientSession:
+        """Spawns the MCP server as a subprocess and initializes the MCP ClientSession."""
         try:
+            # Start the server via stdio communication
             read, write = await self.exit_stack.enter_async_context(
                 stdio_client(
                     server=StdioServerParameters(
@@ -46,16 +47,20 @@ class MCPClient:
                     )
                 )
             )
+
+            # Create the MCP session over the stdio streams
             client_session = await self.exit_stack.enter_async_context(
                 ClientSession(read, write)
             )
+
+            # Perform MCP initialization handshake
             await client_session.initialize()
             return client_session
         except Exception:
             raise RuntimeError("Error: Failed to connect to server")
 
     async def list_all_members(self) -> None:
-        """List all available tools, prompts, and resources."""
+        """List all server-side tools, prompts, and resources."""
         print("MCP Server Members")
         print("=" * 50)
 
@@ -69,12 +74,12 @@ class MCPClient:
 
         print("\n" + "=" * 50)
 
-    # Prints the tools, prompts, and resources available from the MCP server
     async def _list_section(
         self,
         section: str,
         list_method: Callable[[], Awaitable[Any]],
     ) -> None:
+        """Helper to fetch and print details for a specific section (tools/prompts/resources)"""
         try:
             items = getattr(await list_method(), section)
             if items:
@@ -89,7 +94,7 @@ class MCPClient:
             print(f"\n{section.upper()}: Error - {e}")
 
     async def run_chat(self) -> None:
-        """Start interactive chat with MCP server using Gemini."""
+        """Initializes the query handler and launches the interactive chat UI."""
         try:
             handler = GeminiQueryHandler(self.client_session)
             await chat.run_chat(handler)

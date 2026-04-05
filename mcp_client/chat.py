@@ -10,6 +10,8 @@ from prompt_toolkit.buffer import Buffer
 
 
 class UnifiedCompleter(Completer):
+    """Custom prompt_toolkit completer that handles both prompts (/) and resource mentions (@)."""
+
     def __init__(self):
         self.prompts = []
         self.prompt_dict = {}
@@ -17,16 +19,20 @@ class UnifiedCompleter(Completer):
         self.meta_types = []
 
     def update_prompts(self, prompts: List):
+        """Update the list of available MCP prompts for / completion."""
         self.prompts = prompts
         self.prompt_dict = {prompt.name: prompt for prompt in prompts}
 
     def update_resource_items(self, items: List[tuple]):
+        """Update the list of available resources and their types for @ completion."""
         self.resource_items = items
         self.meta_types = sorted(list(set(meta for _, meta in items)))
 
     def get_completions(self, document, complete_event):
+        """Decide completion suggestions based on current cursor position."""
         text_before_cursor = document.text_before_cursor
 
+        # Handle @ resource mentions and filtering (e.g. @Dataset:...)
         if "@" in text_before_cursor:
             last_at_pos = text_before_cursor.rfind("@")
             prefix = text_before_cursor[last_at_pos + 1 :]
@@ -48,7 +54,7 @@ class UnifiedCompleter(Completer):
                         break
 
             if type_filter:
-                # Filtered items
+                # Provide items filtered by the specified type
                 for item, meta in self.resource_items:
                     if meta == type_filter and item.lower().startswith(
                         item_search.lower()
@@ -60,7 +66,7 @@ class UnifiedCompleter(Completer):
                             display_meta=meta,
                         )
             else:
-                # Regular items matching prefix
+                # Provide all items matching the prefix
                 for item, meta in self.resource_items:
                     if item.lower().startswith(prefix.lower()):
                         yield Completion(
@@ -70,7 +76,7 @@ class UnifiedCompleter(Completer):
                             display_meta=meta,
                         )
 
-                # Also suggest filters
+                # Also suggest filters matching the prefix
                 for mt in self.meta_types:
                     if mt.lower().startswith(prefix.lower()):
                         yield Completion(
@@ -81,9 +87,11 @@ class UnifiedCompleter(Completer):
                         )
             return
 
+        # Handle / prompt completions
         if text_before_cursor.startswith("/"):
             parts = text_before_cursor[1:].split()
 
+            # Suggest prompt names if at the first word
             if len(parts) <= 1 and not text_before_cursor.endswith(" "):
                 cmd_prefix = parts[0] if parts else ""
 
@@ -97,6 +105,7 @@ class UnifiedCompleter(Completer):
                         )
                 return
 
+            # Suggest resource items as arguments after a prompt name
             if len(parts) == 1 and text_before_cursor.endswith(" "):
                 for item, meta in self.resource_items:
                     yield Completion(
@@ -109,6 +118,8 @@ class UnifiedCompleter(Completer):
 
 
 class CommandAutoSuggest(AutoSuggest):
+    """Provides ghost text suggestions for prompt arguments."""
+
     def __init__(self, prompts: List):
         self.prompts = prompts
         self.prompt_dict = {prompt.name: prompt for prompt in prompts}
@@ -123,6 +134,7 @@ class CommandAutoSuggest(AutoSuggest):
 
         parts = text[1:].split()
 
+        # If user typed a valid prompt, suggest its first argument name
         if len(parts) == 1 and not text.endswith(" "):
             cmd = parts[0]
             if cmd in self.prompt_dict:
@@ -143,23 +155,23 @@ async def run_chat(handler) -> None:
     autosuggester = CommandAutoSuggest([])
 
     async def refresh_completions():
+        """Fetch updated prompts and resources from the MCP server to refresh autocompletion."""
         try:
+            # Update prompts
             prompts = await handler.list_prompts()
             completer.update_prompts(prompts)
             autosuggester.prompts = prompts
             autosuggester.prompt_dict = {p.name: p for p in prompts}
 
+            # Update resources and nested items from list providers
             resources = await handler.list_resources()
             all_items = []
 
             def get_meta_for_resource(res_name: str) -> str:
+                """Categorize resources by their meta type for UI display."""
                 name_lower = res_name.lower()
                 if "dataset" in name_lower:
                     return "Dataset"
-                if "file" in name_lower:
-                    return "File"
-                if "log" in name_lower:
-                    return "Log"
                 return "Resource"
 
             for res in resources:
@@ -168,7 +180,7 @@ async def run_chat(handler) -> None:
                     "list" in res.name.lower() or "datasets" in res.name.lower()
                 )
 
-                # If it's a list provider, fetch and add its items
+                # If it's a list provider, fetch the items inside it
                 if is_list_provider:
                     try:
                         content = await handler.read_resource(str(res.uri))
@@ -197,12 +209,15 @@ async def run_chat(handler) -> None:
         except Exception as e:
             print(f"Warning: Could not refresh completions: {e}")
 
-    # Initial load
+    # Initial load of completions
     await refresh_completions()
+
+    # Configure key bindings for triggering completions manually
     kb = KeyBindings()
 
     @kb.add("/")
     def _(event):
+        """Open completion menu when / is typed at the start of a line."""
         buffer = event.app.current_buffer
         if buffer.document.is_cursor_at_the_end and not buffer.text:
             buffer.insert_text("/")
@@ -212,11 +227,13 @@ async def run_chat(handler) -> None:
 
     @kb.add("@")
     def _(event):
+        """Open completion menu immediately when @ is typed."""
         buffer = event.app.current_buffer
         buffer.insert_text("@")
         if buffer.document.is_cursor_at_the_end:
             buffer.start_completion(select_first=False)
 
+    # Initialize the interactive prompt session
     session = PromptSession(
         completer=completer,
         history=InMemoryHistory(),
@@ -232,6 +249,7 @@ async def run_chat(handler) -> None:
         auto_suggest=autosuggester,
     )
 
+    # Main interaction loop
     while True:
         try:
             query = await session.prompt_async("\nYou: ")
@@ -242,10 +260,11 @@ async def run_chat(handler) -> None:
             if query.lower() in ("quit", "q"):
                 break
 
+            # Process the query through the handler and MCP
             response = await handler.process_query(query)
             print("\n" + response)
 
-            # Refresh in case server state changed
+            # Refresh completions in case server state changed
             await refresh_completions()
         except KeyboardInterrupt:
             continue

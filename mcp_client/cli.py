@@ -5,6 +5,8 @@ import pathlib
 def parse_args():
     """Parse command line arguments and return parsed args."""
     parser = argparse.ArgumentParser(description="A minimal MCP client")
+
+    # Optional positional argument for the server script
     parser.add_argument(
         "server_path",
         type=pathlib.Path,
@@ -12,6 +14,8 @@ def parse_args():
         default=pathlib.Path("server.py"),
         help="path to the MCP server script (default: server.py)",
     )
+
+    # Mutually exclusive group: user can choose either listing members or starting chat
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--members",

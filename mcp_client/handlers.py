@@ -19,12 +19,16 @@ class GeminiQueryHandler:
             raise RuntimeError(
                 "Error: GEMINI_API_KEY environment variable not set",
             )
+
+        # Initialize the Gemini client
         self.gemini = genai.Client(api_key=api_key)
+
+        # Create an asynchronous chat session with MCP tools enabled for the model
         self.chat = self.gemini.aio.chats.create(
             model="gemini-2.5-flash",
             config=genai.types.GenerateContentConfig(
                 temperature=0,
-                tools=[self.client_session],
+                tools=[self.client_session],  # Expose MCP tools to the LLM
             ),
         )
 
@@ -41,12 +45,12 @@ class GeminiQueryHandler:
     async def get_prompt(
         self, name: str, arguments: dict | None = None
     ) -> List[types.PromptMessage]:
-        """Get a prompt from the MCP server."""
+        """Retrieve a specific prompt by name, optionally with arguments."""
         result = await self.client_session.get_prompt(name, arguments)
         return result.messages
 
     async def read_resource(self, uri: str) -> Any:
-        """Read a resource from the MCP server. Returns parsed JSON if applicable."""
+        """Read a resource from the MCP server and returns parsed JSON if applicable."""
         from pydantic import AnyUrl
         import json
 
@@ -71,7 +75,7 @@ class GeminiQueryHandler:
         mentioned_docs: List[Tuple[str, str]] = []
 
         for resource in resources:
-            # Check if direct match
+            # Match against resource names or URIs
             if resource.name in mentions or str(resource.uri) in mentions:
                 try:
                     content = await self.read_resource(str(resource.uri))
@@ -79,8 +83,7 @@ class GeminiQueryHandler:
                 except Exception as e:
                     print(f"Error reading resource {resource.name}: {e}")
 
-            # Check if it's a list-provider and one of the items matches
-            # This is a bit speculative but follows the user's intent
+            # Special handling for list providers
             if "list" in resource.name.lower() or "datasets" in resource.name.lower():
                 try:
                     items = await self.read_resource(str(resource.uri))
@@ -97,6 +100,7 @@ class GeminiQueryHandler:
                 except:
                     pass
 
+        # Return the collected resources wrapped in XML tages for the LLM
         return "".join(
             f'\n<document name="{name}">\n{content}\n</document>\n'
             for name, content in mentioned_docs
@@ -111,7 +115,7 @@ class GeminiQueryHandler:
         command_name = words[0][1:]
         args = {}
         if len(words) > 1:
-            # Simple heuristic for single argument, like in the reference project
+            # Simple heuristic mapping the second word to a `doc_id` argument
             args = {"doc_id": words[1]}
 
         try:
@@ -130,13 +134,13 @@ class GeminiQueryHandler:
     async def process_query(self, query: str) -> str:
         """Process a query using Gemini and available MCP tools."""
 
-        # Check if it's a command
+        # Process a /prompt command if present
         if query.startswith("/"):
             command_text = await self._process_command(query)
             if command_text:
                 query = f"Execute this prompt:\n{command_text}"
 
-        # Extract resources
+        # Inject context from @resource mentions
         added_resources = await self._extract_resources(query)
         if added_resources:
             query = f"""
@@ -148,5 +152,6 @@ class GeminiQueryHandler:
             User Query: {query}
             """
 
+        # Send final combined prompt to Gemini and return the response
         response = await self.chat.send_message(query)
         return "Assistant: " + str(response.text)
