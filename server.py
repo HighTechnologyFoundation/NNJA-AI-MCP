@@ -429,8 +429,8 @@ def calculate_lapse_rate(
         return f"Error: Missing variables in dataset: {missing}"
 
     # Calculate lapse rate: - (T2 - T1) / ((Z2 - Z1) / 1000)  -> K/km
-    # Note: GP10 is geopotential height in geopotential meters
-    df["lapse_rate"] = -(df[t2_var] - df[t1_var]) / ((df[z2_var] - df[z1_var]) / 1000.0)
+    # Note: GP10 is geopotential height in geopotential decimeters
+    df["lapse_rate"] = -(df[t2_var] - df[t1_var]) / ((df[z2_var] - df[z1_var]) / 10000.0)
 
     # Filter out infinities or NaNs
     df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["lapse_rate"])
