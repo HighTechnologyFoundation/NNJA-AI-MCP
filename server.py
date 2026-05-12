@@ -440,9 +440,28 @@ def calculate_lapse_rate(
             "Error: Could not calculate lapse rate (division by zero or missing data)."
         )
 
-    stats = df["lapse_rate"].describe()
+    # Apply lapse rate categorization to the data
+    df["stability_category"] = df["lapse_rate"].apply(_lapse_rate_category)
 
-    return str(stats.to_json())
+    # Get descriptive statistics of the lapse rate as a dictionary
+    stats = df["lapse_rate"].describe().to_dict()
+
+    # Get the relative frequency distribution of stability categories
+    distribution = df["stability_category"].value_counts(normalize=True).to_dict()
+    distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
+
+    # Combine the results into a structures response to return
+    result = {
+        "summary": {
+            "dominant_condition": df["stability_category"].mode()[0],
+            "mean_lapse_rate": round(stats["mean"], 2),
+            "sample_size": int(stats["count"]),
+        },
+        "stability_distribution": distribution,
+        "raw_stats": {k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in stats.items()},
+    }
+
+    return json.dumps(result)
 
 
 @mcp.tool()
@@ -680,6 +699,29 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
 
     # Return valid, fuzzy-matched variables
     return list(set(mapped_vars))
+
+# Internal function to categorize lapse rate values
+def _lapse_rate_category(lapse_rate: float) -> str:
+    """Categorize lapse rate values based on typical atmospheric conditions.
+
+    Args:
+        lapse_rate (float): The lapse rate in K/km.
+
+    Returns:
+        str: A category label for the lapse rate.
+    """
+    # Temperature increases with height (negative lapse rate) indicates an inversion, extremely stable
+    if lapse_rate < 0:
+        return "Extremely Stable (Inversion)"
+    # Less than the moist adiabatic lapse rate (~6 K/km), stable
+    elif lapse_rate < 6:
+        return "Stable"
+    # Less than the dry adiabatic lapse rate (9.8 K/km), unstable if air is saturated
+    elif lapse_rate < 9.8:
+        return "Conditionally Unstable"
+    # Greater than the dry adiabatic lapse rate indicating instability, unstable
+    else:
+        return "Unstable"
 
 
 # Run the server when this Python file runs
