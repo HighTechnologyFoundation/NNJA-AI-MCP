@@ -21,6 +21,10 @@ The MCP server exposes the following tools to connected LLMs:
 | `descriptive_stats_dataset` | Returns statistical summaries (mean, std, etc.). |
 | `correlation_matrix_dataset`| Computes correlation matrices for dataset variables. |
 | `cite_data` | Generates the correct citation for the data accessed. |
+| `calculate_trend` | Computes the linear trend of a variable over a time range. |
+| `calculate_spectral_index` | Returns data about a domain-specific spectral index for satellite data. |
+| `calculate_lapse_rate` | Provides an interpretation of the lapse rate between two pressure levels. |
+| `compare_datasets` | Compares the means of multiple variables from mulltiple datasets, aligned spatially. |
 
 > Pro Tip: The server uses Fuzzy Matching for dataset and variable names. If you
 (or the AI) make a typo, the server will automatically find the closest valid match!
