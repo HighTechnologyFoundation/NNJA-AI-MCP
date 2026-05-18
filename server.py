@@ -367,22 +367,20 @@ def calculate_spectral_index(
     if df.empty:
         return "Error: No data found for the given criteria."
 
-    # Calculate index
+    # Calculate index (brightness temperature difference)
     df["index_value"] = df[var1] - df[var2]
+    stats = df["index_value"].describe().to_dict()
 
     # Stats and additional categorization for cloud cooling index
     if index_name == "cloud_cooling":
-        # Apply cloud cooling categorization to the data
-        df["index_category"] = df.apply(lambda row: _cloud_cooling_category(row, var1, var2), axis=1)
-
-        # Get descriptive statistics of the chosen index as a dictionary
-        stats = df["index_value"].describe().to_dict()
+        # Apply vectorized cloud cooling categorization to the data
+        df["index_category"] = _cloud_cooling_category(df, var1, var2)
 
         # Get the relative frequency distribution of index categories
         distribution = df["index_category"].value_counts(normalize=True).to_dict()
         distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
 
-        # Combine the results into a structures response to return
+        # Combine the results into a structured response to return
         result = {
             "summary": {
                 "dominant_category": df["index_category"].mode()[0],
@@ -395,14 +393,47 @@ def calculate_spectral_index(
 
         return json.dumps(result)
 
-    # TODO: Implement reasonable wildfire risk index interpretation categorization
-    # NOTE: No categorization for wildfire risk index as it is more complex to reasonably approximate,
-    #       as this index would generally require different day and night thresholds to be adequate.
+    if index_name == "wildfire_risk":
+        # Parse UTC hour from NNJA-AI time configuration
+        if "T" in time:
+            utc_hour = int(time.split("T")[1].split(":")[0])
+        else:
+            utc_hour = 0 # Default to 0 UTC if no time provided
+        
+        # Extract spatial layout to deduce Local Solar Time over SEVIRI disk
+        if lon_bounds and len(lon_bounds) == 2:
+            avg_lon = sum(lon_bounds) / 2
+        else:
+            avg_lon = 0.0 # Default to Prime Meridian
 
-    # Descriptive stats (for wildfire risk, more positive = higher risk / intensity of fire)
-    stats = df["index_value"].describe()
+        # Solar time adjustment (15 degrees longitude = 1 hour difference from UTC)
+        local_hour = (utc_hour + int(avg_lon / 15.0)) % 24
+        is_night = local_hour < 6 or local_hour > 18
 
-    return str(stats.to_json())
+        # Apply vectorized wildfire risk categorization to the data
+        df["index_category"] = _wildfire_risk_category(df, var1, var2, is_night)
+
+        # Get the relative frequency distribution of index categories
+        distribution = df["index_category"].value_counts(normalize=True).to_dict()
+        distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
+        
+        # Combine the results into a structured response to return
+        result = {
+            "summary": {
+                "dominant_category": df["index_category"].mode()[0],
+                "mean_index_value": round(stats["mean"], 2),
+                "active_wildfire_pixels": int((df["index_category"] == "High Risk (Active Wildfire)").sum()),
+                "thresholds_used": "Nighttime" if is_night else "Daytime",
+                "calculated_local_hour": round(local_hour, 1),
+                "sample_size": int(stats["count"]),
+            },
+            "index_distribution": distribution,
+            "raw_stats": {k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in stats.items()},
+        }
+        return json.dumps(result)
+
+    # Default return of descriptive stats for any spectral index without specific categorization logic
+    return json.dumps(stats)
 
 
 @mcp.tool()
@@ -479,7 +510,7 @@ def calculate_lapse_rate(
     distribution = df["stability_category"].value_counts(normalize=True).to_dict()
     distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
 
-    # Combine the results into a structures response to return
+    # Combine the results into a structured response to return
     result = {
         "summary": {
             "dominant_condition": df["stability_category"].mode()[0],
@@ -752,38 +783,87 @@ def _lapse_rate_category(lapse_rate: float) -> str:
     else:
         return "Unstable"
     
-# Internal function to categorize cloud cooling index values
-def _cloud_cooling_category(row: pd.Series, var1: str, var2: str) -> str:
+# Internal function to categorize cloud cooling index values, vectorized using np.select for performance
+def _cloud_cooling_category(df: pd.DataFrame, var1: str, var2: str) -> str:
     """Categorize cloud phases using both brightness temperature difference (BTD) and absolute temperature.
     
-    var1 is 10.8um (window channel, closely approximates physical temperature)
-    var2 is 12.0um
-    """
-    bt_108 = row[var1]
-    btd = row[var1] - row[var2]
-    
-    # Catch Clear Sky or Warm surfaces first using absolute temperature
-    if bt_108 > 273.15: 
-        if btd > 1.0:
-            return "Clear Sky (Warm/Humid Surface)"
-        else:
-            return "Warm Water Clouds / Low Fog"
-            
-    # If it's cold, evaluate the cloud phase based on BTD
-    # Thin ice clouds (Cirrus) split these channels heavily due to ice particle emissivity
-    if bt_108 <= 273.15:
-        if btd > 1.5:
-            return "Thin Ice Clouds (Cirrus)"
-        elif -0.5 <= btd <= 1.5:
-            # If it's freezing cold but BTD is small, it's likely a thick, opaque cloud top
-            if bt_108 < 240: # Deep convective cloud tops (< -33 degrees C)
-                return "Thick Ice / Deep Convective Clouds"
-            else:
-                return "Mixed Phase / Opaque Clouds"
-        else:
-            return "Supercooled Water Clouds"
+    Args:
+        df (pd.DataFrame): The DataFrame containing the relevant variables.
+        var1 (str): The name of the variable representing the brightness temperature at 10.8um, closely approximates physical temperature.
+        var2 (str): The name of the variable representing the brightness temperature at 12.0um.
 
-    return "Unclassified"
+    Returns:
+        str: A category label for the cloud phase.
+    """
+    bt_108 = df[var1]
+    btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_108 - BT_120)
+
+    # Define conditions for categorization of cloud phases
+    conditions = [
+        # Warm Surface Conditions (bt_108 > 273.15)
+        (bt_108 > 273.15) & (btd > 1.0),
+        (bt_108 > 273.15) & (btd <= 1.0),
+
+        # Cold Conditions (bt_108 <= 273.15)
+        (bt_108 <= 273.15) & (btd > 1.5),
+        (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 < 240),
+        (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 >= 240),
+        (bt_108 <= 273.15) & (btd < -0.5)
+    ]
+
+    # Match each condition to its respective category label
+    categories = [
+        "Clear Sky (Warm/Humid Surface)",
+        "Warm Water Clouds / Low Fog",
+        "Thin Ice Clouds (Cirrus)",
+        "Thick Ice / Deep Convective Clouds",
+        "Mixed Phase / Opaque Clouds",
+        "Supercooled Water Clouds"
+    ]
+
+    # Determine categories using np.select (vectorized)
+    return np.select(conditions, categories, default="Unclassified")
+
+# Internal function to categorize wildfire risk index values, vectorized using np.select for performance
+def _wildfire_risk_category(df: pd.DataFrame, var1: str, var2: str, is_night: bool) -> str:
+    """Categorize wildfire risk based on the index value.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the relevant variables.
+        var1 (str): The name of the variable representing the brightness temperature at 3.9um.
+        var2 (str): The name of the variable representing the brightness temperature at 10.8um.
+        is_night (bool): Whether the observation is during nighttime, which affects the interpretation of the index.
+
+    Returns:
+        str: A category label for wildfire risk.
+    """
+    bt_39 = df[var1]
+    btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
+
+    if is_night:
+        conditions = [
+            (btd >= 20.0) & (bt_39 > 310.0),
+            (btd >= 10.0),
+            (btd >= 2.0),
+            (btd < 2.0)
+        ]
+    else:
+        conditions = [
+            (btd >= 25.0) & (bt_39 > 320.0),
+            (btd >= 15.0),
+            (btd >= 6.0),
+            (btd < 6.0)
+        ]
+
+    categories = [
+        "High Risk (Active Wildfire)",
+        "Medium Risk (Probable Fire)",
+        "Low Risk (Thermal Anomaly)",
+        "No Risk (Clear / Cool Surface)"
+    ]
+    
+    # Determine categories using np.select (vectorized)
+    return np.select(conditions, categories, default="Unclassified")
 
 
 # Run the server when this Python file runs
