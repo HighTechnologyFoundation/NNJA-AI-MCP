@@ -370,7 +370,36 @@ def calculate_spectral_index(
     # Calculate index
     df["index_value"] = df[var1] - df[var2]
 
-    # Descriptive stats
+    # Stats and additional categorization for cloud cooling index
+    if index_name == "cloud_cooling":
+        # Apply cloud cooling categorization to the data
+        df["index_category"] = df.apply(lambda row: _cloud_cooling_category(row, var1, var2), axis=1)
+
+        # Get descriptive statistics of the chosen index as a dictionary
+        stats = df["index_value"].describe().to_dict()
+
+        # Get the relative frequency distribution of index categories
+        distribution = df["index_category"].value_counts(normalize=True).to_dict()
+        distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
+
+        # Combine the results into a structures response to return
+        result = {
+            "summary": {
+                "dominant_category": df["index_category"].mode()[0],
+                "mean_index_value": round(stats["mean"], 2),
+                "sample_size": int(stats["count"]),
+            },
+            "index_distribution": distribution,
+            "raw_stats": {k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in stats.items()},
+        }
+
+        return json.dumps(result)
+
+    # TODO: Implement reasonable wildfire risk index interpretation categorization
+    # NOTE: No categorization for wildfire risk index as it is more complex to reasonably approximate,
+    #       as this index would generally require different day and night thresholds to be adequate.
+
+    # Descriptive stats (for wildfire risk, more positive = higher risk / intensity of fire)
     stats = df["index_value"].describe()
 
     return str(stats.to_json())
@@ -722,6 +751,39 @@ def _lapse_rate_category(lapse_rate: float) -> str:
     # Greater than the dry adiabatic lapse rate indicating instability, unstable
     else:
         return "Unstable"
+    
+# Internal function to categorize cloud cooling index values
+def _cloud_cooling_category(row: pd.Series, var1: str, var2: str) -> str:
+    """Categorize cloud phases using both brightness temperature difference (BTD) and absolute temperature.
+    
+    var1 is 10.8um (window channel, closely approximates physical temperature)
+    var2 is 12.0um
+    """
+    bt_108 = row[var1]
+    btd = row[var1] - row[var2]
+    
+    # Catch Clear Sky or Warm surfaces first using absolute temperature
+    if bt_108 > 273.15: 
+        if btd > 1.0:
+            return "Clear Sky (Warm/Humid Surface)"
+        else:
+            return "Warm Water Clouds / Low Fog"
+            
+    # If it's cold, evaluate the cloud phase based on BTD
+    # Thin ice clouds (Cirrus) split these channels heavily due to ice particle emissivity
+    if bt_108 <= 273.15:
+        if btd > 1.5:
+            return "Thin Ice Clouds (Cirrus)"
+        elif -0.5 <= btd <= 1.5:
+            # If it's freezing cold but BTD is small, it's likely a thick, opaque cloud top
+            if bt_108 < 240: # Deep convective cloud tops (< -33 degrees C)
+                return "Thick Ice / Deep Convective Clouds"
+            else:
+                return "Mixed Phase / Opaque Clouds"
+        else:
+            return "Supercooled Water Clouds"
+
+    return "Unclassified"
 
 
 # Run the server when this Python file runs
