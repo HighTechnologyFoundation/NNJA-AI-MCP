@@ -373,8 +373,8 @@ def calculate_spectral_index(
 
     # Stats and additional categorization for cloud cooling index
     if index_name == "cloud_cooling":
-        # Apply vectorized cloud cooling categorization to the data
-        df["index_category"] = _cloud_cooling_category(df, var1, var2)
+        # Apply vectorized cloud cooling categorization to the data, providing bt_108
+        df["index_category"] = _data_category("cloud_cooling", df, var1)
 
         # Get the relative frequency distribution of index categories
         distribution = df["index_category"].value_counts(normalize=True).to_dict()
@@ -410,8 +410,8 @@ def calculate_spectral_index(
         local_hour = (utc_hour + int(avg_lon / 15.0)) % 24
         is_night = local_hour < 6 or local_hour > 18
 
-        # Apply vectorized wildfire risk categorization to the data
-        df["index_category"] = _wildfire_risk_category(df, var1, var2, is_night)
+        # Apply vectorized wildfire risk categorization to the data, providing bt_39 and the is_night flag
+        df["index_category"] = _data_category("wildfire_risk", df, var1, is_night)
 
         # Get the relative frequency distribution of index categories
         distribution = df["index_category"].value_counts(normalize=True).to_dict()
@@ -500,8 +500,8 @@ def calculate_lapse_rate(
             "Error: Could not calculate lapse rate (division by zero or missing data)."
         )
 
-    # Apply lapse rate categorization to the data
-    df["stability_category"] = df["lapse_rate"].apply(_lapse_rate_category)
+    # Apply vectorized lapse rate categorization to the data
+    df["stability_category"] = _data_category("lapse_rate", df, "lapse_rate")
 
     # Get descriptive statistics of the lapse rate as a dictionary
     stats = df["lapse_rate"].describe().to_dict()
@@ -760,109 +760,91 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
     # Return valid, fuzzy-matched variables
     return list(set(mapped_vars))
 
-# Internal function to categorize lapse rate values
-def _lapse_rate_category(lapse_rate: float) -> str:
-    """Categorize lapse rate values based on typical atmospheric conditions.
+# Internal function to categorize data analysis values, vectorized using np.select for performance
+def _data_category(type: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"], df: pd.DataFrame, var: str, is_night: bool | None = None) -> str:
+    """Categorize data analysis values based on typical conditions and any other provided factors.
 
     Args:
-        lapse_rate (float): The lapse rate in K/km.
-
-    Returns:
-        str: A category label for the lapse rate.
-    """
-    # Temperature increases with height (negative lapse rate) indicates an inversion, extremely stable
-    if lapse_rate < 0:
-        return "Extremely Stable (Inversion)"
-    # Less than the moist adiabatic lapse rate (~6 K/km), stable
-    elif lapse_rate < 6:
-        return "Stable"
-    # Less than the dry adiabatic lapse rate (9.8 K/km), unstable if air is saturated
-    elif lapse_rate < 9.8:
-        return "Conditionally Unstable"
-    # Greater than the dry adiabatic lapse rate indicating instability, unstable
-    else:
-        return "Unstable"
-    
-# Internal function to categorize cloud cooling index values, vectorized using np.select for performance
-def _cloud_cooling_category(df: pd.DataFrame, var1: str, var2: str) -> str:
-    """Categorize cloud phases using both brightness temperature difference (BTD) and absolute temperature.
-    
-    Args:
+        type (Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]): The type of data to categorize.
         df (pd.DataFrame): The DataFrame containing the relevant variables.
-        var1 (str): The name of the variable representing the brightness temperature at 10.8um, closely approximates physical temperature.
-        var2 (str): The name of the variable representing the brightness temperature at 12.0um.
+        var (str): The name of the variable needed to make specific classifications.
+        is_night (bool | None, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk.
 
     Returns:
-        np.ndarray: An array of category labels for the cloud phases.
+        np.ndarray: An array of category labels for the lapse rates.
     """
-    bt_108 = df[var1]
-    btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_108 - BT_120)
+    match type:
+        case "lapse_rate":
+            lapse_rate = df[var] # The variable passed in should be the calculated lapse rate in K/km
+            conditions = [
+                (lapse_rate < 0),  # Inversion (temperature increases with height, extremely stable)
+                (lapse_rate >= 0) & (lapse_rate < 6),  # Stable (less than moist adiabatic lapse rate)
+                (lapse_rate >= 6) & (lapse_rate < 9.8),  # Conditionally Unstable (unstable if saturated, stable if unsaturated)
+                (lapse_rate >= 9.8)  # Unstable (greater than dry adiabatic lapse rate)
+            ]
+            categories = [
+                "Extremely Stable (Inversion)",
+                "Stable",
+                "Conditionally Unstable",
+                "Unstable"
+            ]
 
-    # Define conditions for categorization of cloud phases
-    conditions = [
-        # Warm Surface Conditions (bt_108 > 273.15)
-        (bt_108 > 273.15) & (btd > 1.0),
-        (bt_108 > 273.15) & (btd <= 1.0),
+        case "cloud_cooling":
+            bt_108 = df[var] # The variable passed in should be the brightness temperature at 10.8um, which closely approximates physical temperature
+            btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_108 - BT_120)
 
-        # Cold Conditions (bt_108 <= 273.15)
-        (bt_108 <= 273.15) & (btd > 1.5),
-        (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 < 240),
-        (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 >= 240),
-        (bt_108 <= 273.15) & (btd < -0.5)
-    ]
+            # Define conditions for categorization of cloud phases
+            conditions = [
+                # Warm Surface Conditions (bt_108 > 273.15)
+                (bt_108 > 273.15) & (btd > 1.0),
+                (bt_108 > 273.15) & (btd <= 1.0),
 
-    # Match each condition to its respective category label
-    categories = [
-        "Clear Sky (Warm/Humid Surface)",
-        "Warm Water Clouds / Low Fog",
-        "Thin Ice Clouds (Cirrus)",
-        "Thick Ice / Deep Convective Clouds",
-        "Mixed Phase / Opaque Clouds",
-        "Supercooled Water Clouds"
-    ]
+                # Cold Conditions (bt_108 <= 273.15)
+                (bt_108 <= 273.15) & (btd > 1.5),
+                (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 < 240),
+                (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 >= 240),
+                (bt_108 <= 273.15) & (btd < -0.5)
+            ]
 
-    # Determine categories using np.select (vectorized)
-    return np.select(conditions, categories, default="Unclassified")
+            # Match each condition to its respective category label
+            categories = [
+                "Clear Sky (Warm/Humid Surface)",
+                "Warm Water Clouds / Low Fog",
+                "Thin Ice Clouds (Cirrus)",
+                "Thick Ice / Deep Convective Clouds",
+                "Mixed Phase / Opaque Clouds",
+                "Supercooled Water Clouds"
+            ]
 
-# Internal function to categorize wildfire risk index values, vectorized using np.select for performance
-def _wildfire_risk_category(df: pd.DataFrame, var1: str, var2: str, is_night: bool) -> str:
-    """Categorize wildfire risk based on the index value.
+        case "wildfire_risk":
+            bt_39 = df[var] # The variable passed in should be the brightness temperature at 3.9um, which is more sensitive to high temperatures from fires
+            btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
 
-    Args:
-        df (pd.DataFrame): The DataFrame containing the relevant variables.
-        var1 (str): The name of the variable representing the brightness temperature at 3.9um.
-        var2 (str): The name of the variable representing the brightness temperature at 10.8um.
-        is_night (bool): Whether the observation is during nighttime, which affects the interpretation of the index.
+            if is_night:
+                conditions = [
+                    (btd >= 20.0) & (bt_39 > 310.0),
+                    (btd >= 10.0),
+                    (btd >= 2.0),
+                    (btd < 2.0)
+                ]
+            else:
+                conditions = [
+                    (btd >= 25.0) & (bt_39 > 320.0),
+                    (btd >= 15.0),
+                    (btd >= 6.0),
+                    (btd < 6.0)
+                ]
 
-    Returns:
-        np.ndarray: An array of category labels for wildfire risk levels.
-    """
-    bt_39 = df[var1]
-    btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
+            categories = [
+                "High Risk (Active Wildfire)",
+                "Medium Risk (Probable Fire)",
+                "Low Risk (Thermal Anomaly)",
+                "No Risk (Clear / Cool Surface)"
+            ]
 
-    if is_night:
-        conditions = [
-            (btd >= 20.0) & (bt_39 > 310.0),
-            (btd >= 10.0),
-            (btd >= 2.0),
-            (btd < 2.0)
-        ]
-    else:
-        conditions = [
-            (btd >= 25.0) & (bt_39 > 320.0),
-            (btd >= 15.0),
-            (btd >= 6.0),
-            (btd < 6.0)
-        ]
+        case _:
+            raise ValueError(f"Unknown categorization type: {type}")
 
-    categories = [
-        "High Risk (Active Wildfire)",
-        "Medium Risk (Probable Fire)",
-        "Low Risk (Thermal Anomaly)",
-        "No Risk (Clear / Cool Surface)"
-    ]
-    
-    # Determine categories using np.select (vectorized)
     return np.select(conditions, categories, default="Unclassified")
 
 
