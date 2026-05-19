@@ -6,7 +6,7 @@ WORKDIR /app
 RUN pip install uv
 
 # Copy dependency files
-COPY pyproject.toml uv.lock* .
+COPY pyproject.toml uv.lock* ./
 
 # Install dependencies using uv
 RUN uv venv
