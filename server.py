@@ -793,7 +793,7 @@ def _cloud_cooling_category(df: pd.DataFrame, var1: str, var2: str) -> str:
         var2 (str): The name of the variable representing the brightness temperature at 12.0um.
 
     Returns:
-        str: A category label for the cloud phase.
+        np.ndarray: An array of category labels for the cloud phases.
     """
     bt_108 = df[var1]
     btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_108 - BT_120)
@@ -835,7 +835,7 @@ def _wildfire_risk_category(df: pd.DataFrame, var1: str, var2: str, is_night: bo
         is_night (bool): Whether the observation is during nighttime, which affects the interpretation of the index.
 
     Returns:
-        str: A category label for wildfire risk.
+        np.ndarray: An array of category labels for wildfire risk levels.
     """
     bt_39 = df[var1]
     btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
