@@ -25,7 +25,7 @@ class GeminiQueryHandler:
 
         # Create an asynchronous chat session with MCP tools enabled for the model
         self.chat = self.gemini.aio.chats.create(
-            model="gemini-2.5-flash",
+            model="gemini-3.1-flash-lite",
             config=genai.types.GenerateContentConfig(
                 temperature=0,
                 tools=[self.client_session],  # Expose MCP tools to the LLM
