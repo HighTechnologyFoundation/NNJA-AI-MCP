@@ -29,8 +29,6 @@ async def main():
                 brightness temp datum and provide me their stats.
                 """,
             config=genai.types.GenerateContentConfig(
-                # Reduce randomness in response
-                temperature=0,
                 # Give Gemini access to the MCP server tools
                 tools=[mcp_client.session],
             ),
