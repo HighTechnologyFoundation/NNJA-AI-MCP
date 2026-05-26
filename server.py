@@ -214,13 +214,13 @@ def correlation_matrix_dataset(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str | None:
-    """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
+    """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
-        corr_method (Literal["pearson", "kendall", "spearman"], optional): The correlation method to use. Must be one of "pearson", "kendall", or "spearman". Defaults to "pearson".
+        corr_method (Literal["pearson", "kendall", "spearman"], optional): The correlation method to use. Must be "pearson", "kendall", or "spearman". Defaults to "pearson".
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
 
@@ -388,7 +388,10 @@ def calculate_spectral_index(
                 "sample_size": int(stats["count"]),
             },
             "index_distribution": distribution,
-            "raw_stats": {k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in stats.items()},
+            "raw_stats": {
+                k: round(v, 2) if isinstance(v, (int, float)) else v
+                for k, v in stats.items()
+            },
         }
 
         return json.dumps(result)
@@ -398,13 +401,13 @@ def calculate_spectral_index(
         if "T" in time:
             utc_hour = int(time.split("T")[1].split(":")[0])
         else:
-            utc_hour = 0 # Default to 0 UTC if no time provided
-        
+            utc_hour = 0  # Default to 0 UTC if no time provided
+
         # Extract spatial layout to deduce Local Solar Time over SEVIRI disk
         if lon_bounds and len(lon_bounds) == 2:
             avg_lon = sum(lon_bounds) / 2
         else:
-            avg_lon = 0.0 # Default to Prime Meridian
+            avg_lon = 0.0  # Default to Prime Meridian
 
         # Solar time adjustment (15 degrees longitude = 1 hour difference from UTC)
         local_hour = (utc_hour + int(avg_lon / 15.0)) % 24
@@ -416,19 +419,24 @@ def calculate_spectral_index(
         # Get the relative frequency distribution of index categories
         distribution = df["index_category"].value_counts(normalize=True).to_dict()
         distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
-        
+
         # Combine the results into a structured response to return
         result = {
             "summary": {
                 "dominant_category": df["index_category"].mode()[0],
                 "mean_index_value": round(stats["mean"], 2),
-                "active_wildfire_pixels": int((df["index_category"] == "High Risk (Active Wildfire)").sum()),
+                "active_wildfire_pixels": int(
+                    (df["index_category"] == "High Risk (Active Wildfire)").sum()
+                ),
                 "thresholds_used": "Nighttime" if is_night else "Daytime",
                 "calculated_local_hour": round(local_hour, 1),
                 "sample_size": int(stats["count"]),
             },
             "index_distribution": distribution,
-            "raw_stats": {k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in stats.items()},
+            "raw_stats": {
+                k: round(v, 2) if isinstance(v, (int, float)) else v
+                for k, v in stats.items()
+            },
         }
         return json.dumps(result)
 
@@ -490,7 +498,9 @@ def calculate_lapse_rate(
 
     # Calculate lapse rate: - (T2 - T1) / ((Z2 - Z1) / 1000)  -> K/km
     # Note: GP10 is geopotential height in geopotential decimeters
-    df["lapse_rate"] = -(df[t2_var] - df[t1_var]) / ((df[z2_var] - df[z1_var]) / 10000.0)
+    df["lapse_rate"] = -(df[t2_var] - df[t1_var]) / (
+        (df[z2_var] - df[z1_var]) / 10000.0
+    )
 
     # Filter out infinities or NaNs
     df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["lapse_rate"])
@@ -518,7 +528,10 @@ def calculate_lapse_rate(
             "sample_size": int(stats["count"]),
         },
         "stability_distribution": distribution,
-        "raw_stats": {k: round(v, 2) if isinstance(v, (int, float)) else v for k, v in stats.items()},
+        "raw_stats": {
+            k: round(v, 2) if isinstance(v, (int, float)) else v
+            for k, v in stats.items()
+        },
     }
 
     return json.dumps(result)
@@ -760,8 +773,14 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
     # Return valid, fuzzy-matched variables
     return list(set(mapped_vars))
 
+
 # Internal function to categorize data analysis values, vectorized using np.select for performance
-def _data_category(type: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"], df: pd.DataFrame, var: str, is_night: bool | None = None) -> str:
+def _data_category(
+    type: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"],
+    df: pd.DataFrame,
+    var: str,
+    is_night: bool | None = None,
+) -> str:
     """Categorize data analysis values based on typical conditions and any other provided factors.
 
     Args:
@@ -775,35 +794,42 @@ def _data_category(type: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]
     """
     match type:
         case "lapse_rate":
-            lapse_rate = df[var] # The variable passed in should be the calculated lapse rate in K/km
+            # The variable passed in should be the calculated lapse rate in K/km
+            lapse_rate = df[var]
             conditions = [
-                (lapse_rate < 0),  # Inversion (temperature increases with height, extremely stable)
-                (lapse_rate >= 0) & (lapse_rate < 6),  # Stable (less than moist adiabatic lapse rate)
-                (lapse_rate >= 6) & (lapse_rate < 9.8),  # Conditionally Unstable (unstable if saturated, stable if unsaturated)
-                (lapse_rate >= 9.8)  # Unstable (greater than dry adiabatic lapse rate)
+                # Inversion (temperature increases with height, extremely stable)
+                (lapse_rate < 0),
+                # Stable (less than moist adiabatic lapse rate)
+                (lapse_rate >= 0) & (lapse_rate < 6),
+                # Conditionally Unstable (unstable if saturated, stable if unsaturated)
+                (lapse_rate >= 6) & (lapse_rate < 9.8),
+                # Unstable (greater than dry adiabatic lapse rate)
+                (lapse_rate >= 9.8),
             ]
             categories = [
                 "Extremely Stable (Inversion)",
                 "Stable",
                 "Conditionally Unstable",
-                "Unstable"
+                "Unstable",
             ]
 
         case "cloud_cooling":
-            bt_108 = df[var] # The variable passed in should be the brightness temperature at 10.8um, which closely approximates physical temperature
-            btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_108 - BT_120)
+            # The variable passed in should be the brightness temperature at 10.8um, which closely approximates physical temperature
+            bt_108 = df[var]
+
+            # This should be pre-calculated as the difference between the two channels (BT_108 - BT_120)
+            btd = df["index_value"]
 
             # Define conditions for categorization of cloud phases
             conditions = [
                 # Warm Surface Conditions (bt_108 > 273.15)
                 (bt_108 > 273.15) & (btd > 1.0),
                 (bt_108 > 273.15) & (btd <= 1.0),
-
                 # Cold Conditions (bt_108 <= 273.15)
                 (bt_108 <= 273.15) & (btd > 1.5),
                 (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 < 240),
                 (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 >= 240),
-                (bt_108 <= 273.15) & (btd < -0.5)
+                (bt_108 <= 273.15) & (btd < -0.5),
             ]
 
             # Match each condition to its respective category label
@@ -813,33 +839,35 @@ def _data_category(type: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]
                 "Thin Ice Clouds (Cirrus)",
                 "Thick Ice / Deep Convective Clouds",
                 "Mixed Phase / Opaque Clouds",
-                "Supercooled Water Clouds"
+                "Supercooled Water Clouds",
             ]
 
         case "wildfire_risk":
-            bt_39 = df[var] # The variable passed in should be the brightness temperature at 3.9um, which is more sensitive to high temperatures from fires
-            btd = df["index_value"]  # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
+            # The variable passed in should be the brightness temperature at 3.9um, which is more sensitive to high temperatures from fires
+            bt_39 = df[var]
+            # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
+            btd = df["index_value"]
 
             if is_night:
                 conditions = [
                     (btd >= 20.0) & (bt_39 > 310.0),
                     (btd >= 10.0),
                     (btd >= 2.0),
-                    (btd < 2.0)
+                    (btd < 2.0),
                 ]
             else:
                 conditions = [
                     (btd >= 25.0) & (bt_39 > 320.0),
                     (btd >= 15.0),
                     (btd >= 6.0),
-                    (btd < 6.0)
+                    (btd < 6.0),
                 ]
 
             categories = [
                 "High Risk (Active Wildfire)",
                 "Medium Risk (Probable Fire)",
                 "Low Risk (Thermal Anomaly)",
-                "No Risk (Clear / Cool Surface)"
+                "No Risk (Clear / Cool Surface)",
             ]
 
         case _:

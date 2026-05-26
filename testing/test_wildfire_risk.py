@@ -22,7 +22,6 @@ async def main():
         print(res)
 
 
-
 # Run the client when this Python file runs
 if __name__ == "__main__":
     asyncio.run(main())
