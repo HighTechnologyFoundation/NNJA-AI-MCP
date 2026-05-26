@@ -71,7 +71,7 @@ The MCP server exposes the following tools to connected LLMs:
 
 This repository includes three different ways to interact with the MCP server:
 
-1. `mcp-client/` (CLI): An interactive, AI-powered chat interface. Best for
+1. `mcp_client/` (CLI): An interactive, AI-powered chat interface. Best for
 natural language exploration of the data.
 1. `client.py`: A scripted AI agent that performs a specific query and exits.
 Useful for seeing how to integrate MCP into your own Python automation.
