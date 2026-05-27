@@ -299,10 +299,7 @@ def calculate_trend(
     df_mean["time_numeric"] = pd.to_numeric(pd.to_datetime(df_mean["OBS_DATE"]))
 
     # Linear regression
-    # Cast to Any to satisfy Pyright as it sometimes misinterprets the LinregressResult return type
-    res: Any = stats.linregress(
-        df_mean["time_numeric"].values, df_mean[actual_var].values
-    )
+    res = stats.linregress(df_mean["time_numeric"].values, df_mean[actual_var].values)
 
     result = {
         "variable": variable,
