@@ -146,7 +146,7 @@ def load_data_sample(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str | None:
-    """Load the requested dataset into a JSON-format list of dictionaries that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
+    """Load a sample of the requested dataset into a JSON string, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
@@ -177,7 +177,7 @@ def descriptive_stats_dataset(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str | None:
-    """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string that can be easily converted to a pandas DataFrame, sliced down to the subset of interest.
+    """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
@@ -276,7 +276,7 @@ def calculate_trend(
 
     # Subsetting
     filtered_dataset = chosen_dataset.sel(
-        time=slice(start_time, end_time), variables=[actual_var, "LAT", "LON"]
+        time=slice(start_time, end_time), variables=[actual_var, "LAT", "LON", "OBS_DATE"]
     )
 
     # Load dataset
@@ -287,8 +287,6 @@ def calculate_trend(
         df = df[(df["LAT"] >= lat_bounds[0]) & (df["LAT"] <= lat_bounds[1])]
     if lon_bounds:
         df = df[(df["LON"] >= lon_bounds[0]) & (df["LON"] <= lon_bounds[1])]
-
-    df = pd.DataFrame(df)
 
     if df.empty:
         return "Error: No data found for the given criteria."
