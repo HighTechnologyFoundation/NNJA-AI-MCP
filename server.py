@@ -265,32 +265,21 @@ def calculate_trend(
         str: A JSON string with trend coefficient, p-value, and intercept.
     """
 
-    # Search for the most similar valid dataset available
-    chosen_dataset = _fuzzy_dataset_search(dataset)
-
-    # Map virtual variable if applicable
-    actual_var_list = _fuzzy_variable_search(chosen_dataset, [variable])
-    if not actual_var_list:
-        return f"Error: Variable '{variable}' not found in dataset."
-    actual_var = actual_var_list[0]
-
-    # Subsetting
-    filtered_dataset = chosen_dataset.sel(
-        time=slice(start_time, end_time),
-        variables=[actual_var, "LAT", "LON", "OBS_DATE"],
+    # Access data for this dataset, sliced by time range and spatial bounds
+    # We use rows=-1 to load all data in the region for better averaging
+    df = _access_dataset(
+        dataset,
+        slice(start_time, end_time),
+        [variable, "LAT", "LON", "OBS_DATE"],
+        rows=-1,
+        lat_bounds=lat_bounds,
+        lon_bounds=lon_bounds,
     )
-
-    # Load dataset
-    df = filtered_dataset.load_dataset(backend="pandas")
-
-    # Spatial filter
-    if lat_bounds:
-        df = df[(df["LAT"] >= lat_bounds[0]) & (df["LAT"] <= lat_bounds[1])]
-    if lon_bounds:
-        df = df[(df["LON"] >= lon_bounds[0]) & (df["LON"] <= lon_bounds[1])]
 
     if df.empty:
         return "Error: No data found for the given criteria."
+
+    actual_var = df.columns[0]  # Get the actual variable name after fuzzy matching
 
     # Group by time and calculate mean if there are multiple observations per timestamp
     df_mean = df.groupby("OBS_DATE")[actual_var].mean().reset_index()
