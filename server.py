@@ -3,7 +3,7 @@ from nnja_ai import DataCatalog, NNJADataset
 from datetime import date
 from fuzzywuzzy import process
 import re
-from typing import Literal, Any
+from typing import Literal
 import pandas as pd
 import numpy as np
 from scipy import stats
