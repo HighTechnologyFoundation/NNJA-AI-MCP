@@ -276,7 +276,8 @@ def calculate_trend(
 
     # Subsetting
     filtered_dataset = chosen_dataset.sel(
-        time=slice(start_time, end_time), variables=[actual_var, "LAT", "LON", "OBS_DATE"]
+        time=slice(start_time, end_time),
+        variables=[actual_var, "LAT", "LON", "OBS_DATE"],
     )
 
     # Load dataset
