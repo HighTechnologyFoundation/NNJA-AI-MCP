@@ -600,7 +600,7 @@ def compare_datasets(
 # Internal function for accessing a dataset
 def _access_dataset(
     dataset: str,
-    time: str,
+    time: str | slice,
     vars: list[str],
     rows: int = 100,
     lat_bounds: list[float] | None = None,
@@ -610,7 +610,7 @@ def _access_dataset(
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
-        time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
+        time (str | slice): The time of interest to keep from the dataset in YYYY-MM-DD format or a slice object of start and end times.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         rows (int, optional): The number of rows to sample from the dataset. Defaults to 100.
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
@@ -765,7 +765,7 @@ def _data_category(
     df: pd.DataFrame,
     var: str,
     is_night: bool | None = None,
-) -> str:
+) -> np.ndarray:
     """Categorize data analysis values based on typical conditions and any other provided factors.
 
     Args:
