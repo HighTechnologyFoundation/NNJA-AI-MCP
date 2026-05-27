@@ -59,7 +59,7 @@ class GeminiQueryHandler:
             if resource.mimeType == "application/json":
                 try:
                     return json.loads(resource.text)
-                except:
+                except Exception:
                     return resource.text
             return resource.text
         return str(resource)
@@ -96,7 +96,7 @@ class GeminiQueryHandler:
                                 mentioned_docs.append(
                                     (str(item), f"Selected item from {resource.name}")
                                 )
-                except:
+                except Exception:
                     pass
 
         # Return the collected resources wrapped in XML tages for the LLM

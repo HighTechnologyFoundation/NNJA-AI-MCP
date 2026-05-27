@@ -198,7 +198,7 @@ async def run_chat(handler) -> None:
                                     if line.strip()
                                 ]
                             )
-                    except:
+                    except Exception:
                         pass
                 else:
                     # Add the resource name itself only if it's not a list provider
