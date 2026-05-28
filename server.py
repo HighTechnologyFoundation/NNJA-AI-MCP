@@ -618,6 +618,10 @@ def _access_dataset(
     Returns:
         pd.DataFrame: A pandas DataFrame of the requested dataset, sliced down to the subset of interest.
     """
+    # Validate latitude and longitude bounds
+    if len(lat_bounds) != 2 or len(lon_bounds) != 2:
+        raise ValueError("Latitude and longitude bounds must be lists of two floats: [min, max].")
+
     # Search for the most similar valid dataset available
     chosen_dataset = _fuzzy_dataset_search(dataset)
 
@@ -666,6 +670,10 @@ def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
 
     # Search for valid dataset names using the input dataset name
     valid_datasets = catalog.search(dataset)
+
+    # If no valid datasets are found, raise an error
+    if not valid_datasets:
+        raise ValueError(f"No dataset matching '{dataset}' found.")
 
     # Get and return a valid dataset
     return catalog[valid_datasets[0].name]
