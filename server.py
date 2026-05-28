@@ -189,17 +189,16 @@ def descriptive_stats_dataset(
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the descriptive statistics of the loaded dataset, filtered down to the subset of interest.
     """
-    print("vars:", vars)
     # Access the requested dataset
     df = _access_dataset(
         dataset, time, vars, lat_bounds=lat_bounds, lon_bounds=lon_bounds
     )
 
     # Create a DataFrame of descriptive stats about the data
-    stats = df.describe()
+    desc_stats = df.describe()
 
     # Convert the stats DataFrame into a JSON string, which can be returned from the MCP tool
-    dicts = stats.to_json()
+    dicts = desc_stats.to_json()
 
     # Return the JSON string of stats
     return dicts
@@ -354,7 +353,7 @@ def calculate_spectral_index(
 
     # Calculate index (brightness temperature difference)
     df["index_value"] = df[var1] - df[var2]
-    stats = df["index_value"].describe().to_dict()
+    desc_stats = df["index_value"].describe().to_dict()
 
     # Stats and additional categorization for cloud cooling index
     if index_name == "cloud_cooling":
@@ -369,13 +368,13 @@ def calculate_spectral_index(
         result = {
             "summary": {
                 "dominant_category": df["index_category"].mode()[0],
-                "mean_index_value": round(stats["mean"], 2),
-                "sample_size": int(stats["count"]),
+                "mean_index_value": round(desc_stats["mean"], 2),
+                "sample_size": int(desc_stats["count"]),
             },
             "index_distribution": distribution,
             "raw_stats": {
                 k: round(v, 2) if isinstance(v, (int, float)) else v
-                for k, v in stats.items()
+                for k, v in desc_stats.items()
             },
         }
 
@@ -409,24 +408,24 @@ def calculate_spectral_index(
         result = {
             "summary": {
                 "dominant_category": df["index_category"].mode()[0],
-                "mean_index_value": round(stats["mean"], 2),
+                "mean_index_value": round(desc_stats["mean"], 2),
                 "active_wildfire_pixels": int(
                     (df["index_category"] == "High Risk (Active Wildfire)").sum()
                 ),
                 "thresholds_used": "Nighttime" if is_night else "Daytime",
                 "calculated_local_hour": round(local_hour, 1),
-                "sample_size": int(stats["count"]),
+                "sample_size": int(desc_stats["count"]),
             },
             "index_distribution": distribution,
             "raw_stats": {
                 k: round(v, 2) if isinstance(v, (int, float)) else v
-                for k, v in stats.items()
+                for k, v in desc_stats.items()
             },
         }
         return json.dumps(result)
 
     # Default return of descriptive stats for any spectral index without specific categorization logic
-    return json.dumps(stats)
+    return json.dumps(desc_stats)
 
 
 @mcp.tool()
@@ -499,7 +498,7 @@ def calculate_lapse_rate(
     df["stability_category"] = _data_category("lapse_rate", df, "lapse_rate")
 
     # Get descriptive statistics of the lapse rate as a dictionary
-    stats = df["lapse_rate"].describe().to_dict()
+    desc_stats = df["lapse_rate"].describe().to_dict()
 
     # Get the relative frequency distribution of stability categories
     distribution = df["stability_category"].value_counts(normalize=True).to_dict()
@@ -509,13 +508,13 @@ def calculate_lapse_rate(
     result = {
         "summary": {
             "dominant_condition": df["stability_category"].mode()[0],
-            "mean_lapse_rate": round(stats["mean"], 2),
-            "sample_size": int(stats["count"]),
+            "mean_lapse_rate": round(desc_stats["mean"], 2),
+            "sample_size": int(desc_stats["count"]),
         },
         "stability_distribution": distribution,
         "raw_stats": {
             k: round(v, 2) if isinstance(v, (int, float)) else v
-            for k, v in stats.items()
+            for k, v in desc_stats.items()
         },
     }
 
@@ -644,15 +643,9 @@ def _access_dataset(
     if lon_bounds:
         df = df[(df["LON"] >= lon_bounds[0]) & (df["LON"] <= lon_bounds[1])]
 
-    # Print original data rows x columns amounts
-    print("Original data shape (rows, columns):", df.shape)
-
     # NOTE: DataFrame size must be reduced to fully fit into AI free-tier input and output token limits
     if rows > 0:
         df = df[:rows]
-
-    # Print new rows x columns amounts
-    print("Sliced data shape (rows, columns):", df.shape)
 
     # Return the DataFrame
     return pd.DataFrame(df)
@@ -761,7 +754,7 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
 
 # Internal function to categorize data analysis values, vectorized using np.select for performance
 def _data_category(
-    type: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"],
+    analysis: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"],
     df: pd.DataFrame,
     var: str,
     is_night: bool | None = None,
@@ -769,7 +762,7 @@ def _data_category(
     """Categorize data analysis values based on typical conditions and any other provided factors.
 
     Args:
-        type (Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]): The type of data to categorize.
+        analysis (Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]): The type of analysis results to categorize.
         df (pd.DataFrame): The DataFrame containing the relevant variables.
         var (str): The name of the variable needed to make specific classifications.
         is_night (bool, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk.
@@ -777,7 +770,7 @@ def _data_category(
     Returns:
         np.ndarray: An array of category labels for the lapse rates.
     """
-    match type:
+    match analysis:
         case "lapse_rate":
             # The variable passed in should be the calculated lapse rate in K/km
             lapse_rate = df[var]
@@ -856,7 +849,7 @@ def _data_category(
             ]
 
         case _:
-            raise ValueError(f"Unknown categorization type: {type}")
+            raise ValueError(f"Unknown categorization type: {analysis}")
 
     return np.select(conditions, categories, default="Unclassified")
 
