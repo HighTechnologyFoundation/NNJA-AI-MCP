@@ -633,7 +633,7 @@ def _access_dataset(
     valid_vars = _fuzzy_variable_search(chosen_dataset, search_vars)
 
     # Filter the valid dataset down to only the subset of interest
-    filtered_dataset = chosen_dataset.sel(time=f"{time}", variables=valid_vars)
+    filtered_dataset = chosen_dataset.sel(time=time, variables=valid_vars)
 
     # Load the chosen dataset into a pandas DataFrame
     df = filtered_dataset.load_dataset(backend="pandas")
