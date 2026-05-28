@@ -145,7 +145,7 @@ def load_data_sample(
     rows: int = 100,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
-) -> str | None:
+) -> str:
     """Load a sample of the requested dataset into a JSON string, sliced down to the subset of interest.
 
     Args:
@@ -176,7 +176,7 @@ def descriptive_stats_dataset(
     vars: list[str],
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
-) -> str | None:
+) -> str:
     """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string, sliced down to the subset of interest.
 
     Args:
@@ -213,7 +213,7 @@ def correlation_matrix_dataset(
     corr_method: Literal["pearson", "kendall", "spearman"] = "pearson",
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
-) -> str | None:
+) -> str:
     """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string, sliced down to the subset of interest.
 
     Args:
@@ -772,7 +772,7 @@ def _data_category(
         type (Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]): The type of data to categorize.
         df (pd.DataFrame): The DataFrame containing the relevant variables.
         var (str): The name of the variable needed to make specific classifications.
-        is_night (bool | None, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk.
+        is_night (bool, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk.
 
     Returns:
         np.ndarray: An array of category labels for the lapse rates.
