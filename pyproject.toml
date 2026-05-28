@@ -1,13 +1,13 @@
 [project]
 name = "nnja-ai-mcp"
-version = "0.3.0"
+version = "0.4.0"
 description = "MCP server to access NNJA-AI datasets and client to test."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "fastmcp==2.12.4",
+    "fastmcp>=3.0.0,<4",
     "fuzzywuzzy>=0.18.0",
-    "google-genai>=1.43.0",
+    "google-genai>=1.43.0,<1.74.0",
     "matplotlib>=3.10.7",
     "nnja-ai>=1.0.0",
     "prompt-toolkit>=3.0.52",
