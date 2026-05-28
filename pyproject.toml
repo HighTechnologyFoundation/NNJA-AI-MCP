@@ -1,6 +1,6 @@
 [project]
 name = "nnja-ai-mcp"
-version = "0.4.0"
+version = "0.4.1"
 description = "MCP server to access NNJA-AI datasets and client to test."
 readme = "README.md"
 requires-python = ">=3.13"
