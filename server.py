@@ -449,6 +449,8 @@ def calculate_lapse_rate(
     """Calculate the lapse rate between two pressure levels using ADPUPA (Upper-Air) data.
     Lapse rate is calculated as - (T2 - T1) / (Z2 - Z1) in K/km.
 
+    Note: This tool is currently implemented only for the conv-adpupa-NC002001 dataset.
+
     Args:
         time (str): The time of interest (YYYY-MM-DD).
         lat_bounds (list[float], optional): Latitude boundaries.
