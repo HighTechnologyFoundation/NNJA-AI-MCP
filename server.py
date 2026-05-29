@@ -337,7 +337,7 @@ def calculate_spectral_index(
     }
 
     if index_name not in mapping:
-        return f"Error: Index '{index_name}' not implemented."
+        raise ValueError(f"Index '{index_name}' not implemented.")
 
     var1, var2 = mapping[index_name]
 
