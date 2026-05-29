@@ -628,9 +628,9 @@ def _access_dataset(
     # Search for valid variable names using the input variable list
     # Always include LAT and LON for spatial subsetting if requested
     search_vars = list(vars)
-    if "LAT" not in search_vars and "latitude" not in search_vars:
+    if lat_bounds and "LAT" not in search_vars and "latitude" not in search_vars:
         search_vars.append("latitude")
-    if "LON" not in search_vars and "longitude" not in search_vars:
+    if lon_bounds and "LON" not in search_vars and "longitude" not in search_vars:
         search_vars.append("longitude")
 
     valid_vars = _fuzzy_variable_search(chosen_dataset, search_vars)
