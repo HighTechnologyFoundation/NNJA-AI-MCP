@@ -178,7 +178,7 @@ def descriptive_stats_dataset(
     dataset: str,
     time: str,
     vars: list[str],
-    rows: int= -1,
+    rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
@@ -200,9 +200,7 @@ def descriptive_stats_dataset(
         str: A JSON string that can be easily converted to a pandas DataFrame of the descriptive statistics of the loaded dataset, filtered down to the subset of interest.
     """
     # Access the requested dataset
-    df = _access_dataset(
-        dataset, time, vars, rows, lat_bounds, lon_bounds, end_time
-    )
+    df = _access_dataset(dataset, time, vars, rows, lat_bounds, lon_bounds, end_time)
 
     # Create a DataFrame of descriptive stats about the data
     desc_stats = df.describe()
@@ -345,7 +343,9 @@ def calculate_spectral_index(
     """
     # Input validation for dataset, since this tool only works for one dataset for now
     if dataset != "seviri-sevasr-NC021042":
-        raise ValueError("This tool is currently only implemented for the seviri-sevasr-NC021042 dataset.")
+        raise ValueError(
+            "This tool is currently only implemented for the seviri-sevasr-NC021042 dataset."
+        )
 
     # Mapping for SEVIRI channels
     # Channel 4: 3.9um, Channel 9: 10.8um, Channel 10: 12.0um
@@ -637,7 +637,9 @@ def _access_dataset(
     """
     # Validate latitude and longitude bounds, if entered
     if (lat_bounds and len(lat_bounds) != 2) or (lon_bounds and len(lon_bounds) != 2):
-        raise ValueError("Latitude and longitude bounds must be lists of two floats: [min, max].")
+        raise ValueError(
+            "Latitude and longitude bounds must be lists of two floats: [min, max]."
+        )
 
     # Validate end_time input, if provided
     if end_time and date.fromisoformat(end_time) < date.fromisoformat(time):
@@ -765,7 +767,9 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[st
             fuzzy_var = process.extractOne(var, choices)
             if fuzzy_var:
                 match_val = fuzzy_var[0]
-                result[var] = match_val if match_val in all_valid_ids else dataset_vars[match_val]
+                result[var] = (
+                    match_val if match_val in all_valid_ids else dataset_vars[match_val]
+                )
 
     return result
 
