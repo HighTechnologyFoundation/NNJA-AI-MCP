@@ -584,30 +584,22 @@ def compare_datasets(
                 results[ds_name] = "No data found in this region."
                 continue
 
-            # Calculate means for requested variables
-            # Map requested vars to actual IDs for this dataset
-            chosen_dataset = _fuzzy_dataset_search(ds_name)
-            actual_vars = _fuzzy_variable_search(chosen_dataset, vars)
-
             # Filter only numeric columns for mean calculation
-            numeric_df = df[actual_vars].select_dtypes(include=[np.number])
+            numeric_df = df.select_dtypes(include=[np.number])
 
             # Ensure means is a dictionary
             means_result = numeric_df.mean()
             if isinstance(means_result, (int, float, np.number)):
-                # Handle single column result returning a scalar
-                means = {actual_vars[0]: float(means_result)}
+                means = {numeric_df.columns[0]: float(means_result)}
             else:
                 means = means_result.to_dict()
 
-            # Map back to requested variable names for easy comparison
+            # Map requested variable names to actual IDs using the mapping from _access_dataset
             mapped_means = {}
             for v in vars:
-                actual_v_list = _fuzzy_variable_search(chosen_dataset, [v])
-                if actual_v_list:
-                    actual_v = actual_v_list[0]
-                    if actual_v in means:
-                        mapped_means[v] = means[actual_v]
+                actual_v = df._var_mapping.get(v)
+                if actual_v and actual_v in means:
+                    mapped_means[v] = means[actual_v]
 
             results[ds_name] = {
                 "means": mapped_means,
@@ -662,9 +654,11 @@ def _access_dataset(
     if lon_bounds and "LON" not in search_vars and "longitude" not in search_vars:
         search_vars.append("longitude")
 
-    valid_vars = _fuzzy_variable_search(chosen_dataset, search_vars)
+    var_mapping = _fuzzy_variable_search(chosen_dataset, search_vars)
+    valid_vars = list(set(var_mapping.values()))
 
-    if end_time: time = slice(time, end_time)
+    if end_time:
+        time = slice(time, end_time)
 
     # Filter the valid dataset down to only the subset of interest
     filtered_dataset = chosen_dataset.sel(time=time, variables=valid_vars)
@@ -682,8 +676,12 @@ def _access_dataset(
     if rows > 0:
         df = df[:rows]
 
+    # Add the dataset name and var mapping as an attribute to the DataFrame for tools that need it
+    df._name = chosen_dataset.name
+    df._var_mapping = var_mapping
+
     # Return the DataFrame
-    return pd.DataFrame(df)
+    return df
 
 
 # Internal function for fuzzy searching of dataset names
@@ -711,7 +709,7 @@ def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
 
 
 # Internal function for fuzzy searching of dataset variables
-def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[str]:
+def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[str, str]:
     """Uses fuzzy matching to get valid variables to filter a dataset down to.
 
     Args:
@@ -719,39 +717,33 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
         var_list (list[str]): A list of variables to search for actual valid column names.
 
     Returns:
-        list[str]: A list of valid variable names to filter dataset columns down to.
+        dict[str, str]: A mapping of each input variable name to its resolved actual variable ID.
     """
-    # First, try to map variables using the VIRTUAL_VARIABLE_REGISTRY
-    mapped_vars = []
+    result: dict[str, str] = {}
     remaining_vars = []
 
     for var in var_list:
         var_lower = var.lower()
         if var_lower in VIRTUAL_VARIABLE_REGISTRY:
-            # Check if there is a specific mapping for this dataset
             if dataset.name in VIRTUAL_VARIABLE_REGISTRY[var_lower]:
-                mapped_vars.append(VIRTUAL_VARIABLE_REGISTRY[var_lower][dataset.name])
-            # Check if there is a default mapping
+                result[var] = VIRTUAL_VARIABLE_REGISTRY[var_lower][dataset.name]
             elif "DEFAULT" in VIRTUAL_VARIABLE_REGISTRY[var_lower]:
-                mapped_vars.append(VIRTUAL_VARIABLE_REGISTRY[var_lower]["DEFAULT"])
+                result[var] = VIRTUAL_VARIABLE_REGISTRY[var_lower]["DEFAULT"]
             else:
                 remaining_vars.append(var)
         else:
             remaining_vars.append(var)
 
-    if not remaining_vars and mapped_vars:
-        return list(set(mapped_vars))
+    if not remaining_vars:
+        return result
 
     # Initialize a dictionary to hold the valid variables and a set of all valid IDs
     all_valid_ids = set()
     dataset_vars = {}
 
-    # Iterate through each variable category in the dataset
     for var_category in dataset.list_variables().values():
-        # Iterate through each variable in each category
         for var in var_category:
             all_valid_ids.add(var.id)
-            # Find all numbers in the variable ID
             matches = re.findall(r"\d+", var.id)
 
             # If the variable name has numbers, use the LAST one for the description mapping
@@ -760,35 +752,22 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> list[st
                 # Append the number to the end of the description (without leading 0s)
                 dataset_vars[var.description + " " + str(int(matches[-1]))] = var.id
             else:
-                # Store variables directly
                 dataset_vars[var.description] = var.id
 
-    # Search through the valid variables for those wanted
     for var in remaining_vars:
-        # If the current var is already a valid ID, keep it
         if var in all_valid_ids:
-            mapped_vars.append(var)
-
-        # Else, check if it's in our descriptive mapping
+            result[var] = var
         elif var in dataset_vars:
-            mapped_vars.append(dataset_vars[var])
-
-        # Else, fuzzy match to find a valid variable among descriptions and IDs
+            result[var] = dataset_vars[var]
         else:
             # fuzzy_var is a tuple of form: (best_match, match_score)
             choices = list(dataset_vars.keys()) + list(all_valid_ids)
             fuzzy_var = process.extractOne(var, choices)
-
-            # If fuzzy_var is not None (if there is any fuzzy match), ...
             if fuzzy_var:
                 match_val = fuzzy_var[0]
-                if match_val in all_valid_ids:
-                    mapped_vars.append(match_val)
-                else:
-                    mapped_vars.append(dataset_vars[match_val])
+                result[var] = match_val if match_val in all_valid_ids else dataset_vars[match_val]
 
-    # Return valid, fuzzy-matched variables
-    return list(set(mapped_vars))
+    return result
 
 
 # Internal function to categorize data analysis values, vectorized using np.select for performance
