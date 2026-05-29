@@ -317,6 +317,9 @@ def calculate_spectral_index(
 ) -> str:
     """Calculate a domain-specific spectral index for satellite data.
 
+    Note: This tool is currently implemented only for seviri-sevasr-NC021042.
+    Do **NOT** use other datasets with this tool for now.
+
     Args:
         dataset (str): The name of the dataset (e.g., seviri-sevasr-NC021042).
         time (str): The time of interest (YYYY-MM-DD).
@@ -329,6 +332,10 @@ def calculate_spectral_index(
     Returns:
         str: A JSON string with the calculated index statistics.
     """
+    # Input validation for dataset, since this tool only works for one dataset for now
+    if dataset != "seviri-sevasr-NC021042":
+        raise ValueError("This tool is currently only implemented for the seviri-sevasr-NC021042 dataset.")
+
     # Mapping for SEVIRI channels
     # Channel 4: 3.9um, Channel 9: 10.8um, Channel 10: 12.0um
     mapping = {
