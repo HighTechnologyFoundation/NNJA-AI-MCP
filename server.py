@@ -102,11 +102,11 @@ def dataset_info(dataset: str) -> str:
     Returns:
         str: A string containing a summary of the requested dataset.
     """
-    # Search for the most similar valid dataset available
-    chosen_dataset = _fuzzy_dataset_search(dataset)
-
-    # Return a summary of the dataset
-    return chosen_dataset.info()
+    try:
+        chosen_dataset = _fuzzy_dataset_search(dataset)
+        return chosen_dataset.info()
+    except ValueError as e:
+        return f"Error: {e}"
 
 
 @mcp.tool()
@@ -119,11 +119,11 @@ def variables_info(dataset: str) -> str:
     Returns:
         str: A string containing a list of the variables in the requested dataset and their descriptions.
     """
-    # Search for the most similar valid dataset available
-    chosen_dataset = _fuzzy_dataset_search(dataset)
-
-    # Return a list of variables and their descriptions from the dataset
-    vars_str = str(chosen_dataset.list_variables())
+    try:
+        chosen_dataset = _fuzzy_dataset_search(dataset)
+        vars_str = str(chosen_dataset.list_variables())
+    except ValueError as e:
+        return f"Error: {e}"
 
     # Add info about virtual variables
     virtual_vars = []
@@ -163,14 +163,17 @@ def load_data_sample(
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
     """
-    # Access the requested dataset (`rows` must be reasonably small if used by AI)
-    df = _access_dataset(dataset, time, vars, rows, lat_bounds, lon_bounds, end_time)
+    try:
+        df = _access_dataset(
+            dataset, time, vars, rows, lat_bounds, lon_bounds, end_time
+        )
+    except ValueError as e:
+        return f"Error: {e}"
 
-    # Convert the DataFrame into a list of dictionaries, which can be returned from the MCP tool
-    dicts = df.to_json(orient="records")
+    if df.empty:
+        return "Error: No data found for the given criteria."
 
-    # Return the JSON formatted data
-    return dicts
+    return df.to_json(orient="records")
 
 
 @mcp.tool()
@@ -199,17 +202,17 @@ def descriptive_stats_dataset(
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the descriptive statistics of the loaded dataset, filtered down to the subset of interest.
     """
-    # Access the requested dataset
-    df = _access_dataset(dataset, time, vars, rows, lat_bounds, lon_bounds, end_time)
+    try:
+        df = _access_dataset(
+            dataset, time, vars, rows, lat_bounds, lon_bounds, end_time
+        )
+    except ValueError as e:
+        return f"Error: {e}"
 
-    # Create a DataFrame of descriptive stats about the data
-    desc_stats = df.describe()
+    if df.empty:
+        return "Error: No data found for the given criteria."
 
-    # Convert the stats DataFrame into a JSON string, which can be returned from the MCP tool
-    dicts = desc_stats.to_json()
-
-    # Return the JSON string of stats
-    return dicts
+    return df.describe().to_json()
 
 
 @mcp.tool()
@@ -234,19 +237,21 @@ def correlation_matrix_dataset(
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the correlation matrix of the loaded dataset, filtered down to the subset of interest.
     """
-    # Access the requested dataset
-    df = _access_dataset(
-        dataset, time, vars, lat_bounds=lat_bounds, lon_bounds=lon_bounds
-    )
+    try:
+        df = _access_dataset(
+            dataset, time, vars, lat_bounds=lat_bounds, lon_bounds=lon_bounds
+        )
+    except ValueError as e:
+        return f"Error: {e}"
 
-    # Create a DataFrame of the correlation matrix of the data
-    correlation_matrix = df.corr(method=corr_method)
+    if df.empty:
+        return "Error: No data found for the given criteria."
 
-    # Convert the correlation matrix DataFrame into a JSON string, which can be returned from the MCP tool
-    dicts = correlation_matrix.to_json()
+    numeric_df = df.select_dtypes(include=[np.number])
+    if numeric_df.empty:
+        return "Error: No numeric columns available for correlation."
 
-    # Return the JSON string representation of the correlation matrix
-    return dicts
+    return numeric_df.corr(method=corr_method).to_json()
 
 
 @mcp.tool()
@@ -272,33 +277,35 @@ def calculate_trend(
         str: A JSON string with trend coefficient, p-value, and intercept.
     """
 
-    # Access data for this dataset, sliced by time range and spatial bounds
-    # We use rows=-1 to load all data in the region for better averaging
-    df = _access_dataset(
-        dataset,
-        start_time,
-        [variable, "OBS_DATE"],
-        rows=-1,
-        lat_bounds=lat_bounds,
-        lon_bounds=lon_bounds,
-        end_time=end_time,
-    )
+    try:
+        df = _access_dataset(
+            dataset,
+            start_time,
+            [variable, "OBS_DATE"],
+            rows=-1,
+            lat_bounds=lat_bounds,
+            lon_bounds=lon_bounds,
+            end_time=end_time,
+        )
+    except ValueError as e:
+        return f"Error: {e}"
 
     if df.empty:
         return "Error: No data found for the given criteria."
 
-    # Manually determine the actual variable name of interest (not OBS_DATE, LAT, or LON)
-    actual_var_names = df.columns.tolist()
-    unwanted_cols = ["OBS_DATE", "LAT", "LON"]
-    actual_var = [col for col in actual_var_names if col not in unwanted_cols][0]
+    unwanted_cols = {"OBS_DATE", "LAT", "LON"}
+    data_cols = [col for col in df.columns if col not in unwanted_cols]
+    if not data_cols:
+        return "Error: No data variable found in result."
+    actual_var = data_cols[0]
 
-    # Group by time and calculate mean if there are multiple observations per timestamp
     df_mean = df.groupby("OBS_DATE")[actual_var].mean().reset_index()
 
-    # Convert dates to numbers for regression
+    if len(df_mean) < 2:
+        return "Error: Not enough time points to calculate a trend (need at least 2 dates)."
+
     df_mean["time_numeric"] = pd.to_numeric(pd.to_datetime(df_mean["OBS_DATE"]))
 
-    # Linear regression
     res = stats.linregress(df_mean["time_numeric"].values, df_mean[actual_var].values)
 
     result = {
@@ -359,18 +366,24 @@ def calculate_spectral_index(
 
     var1, var2 = mapping[index_name]
 
-    # Access data
-    df = _access_dataset(
-        dataset,
-        time,
-        [var1, var2],
-        rows=5000,
-        lat_bounds=lat_bounds,
-        lon_bounds=lon_bounds,
-    )
+    try:
+        df = _access_dataset(
+            dataset,
+            time,
+            [var1, var2],
+            rows=5000,
+            lat_bounds=lat_bounds,
+            lon_bounds=lon_bounds,
+        )
+    except ValueError as e:
+        return f"Error: {e}"
 
     if df.empty:
         return "Error: No data found for the given criteria."
+
+    missing_cols = [v for v in [var1, var2] if v not in df.columns]
+    if missing_cols:
+        return f"Error: Expected columns not found in data: {missing_cols}"
 
     # Calculate index (brightness temperature difference)
     df["index_value"] = df[var1] - df[var2]
@@ -485,15 +498,17 @@ def calculate_lapse_rate(
 
     required_vars = [t1_var, t2_var, z1_var, z2_var]
 
-    # Access data
-    df = _access_dataset(
-        dataset,
-        time,
-        required_vars,
-        rows=1000,
-        lat_bounds=lat_bounds,
-        lon_bounds=lon_bounds,
-    )
+    try:
+        df = _access_dataset(
+            dataset,
+            time,
+            required_vars,
+            rows=1000,
+            lat_bounds=lat_bounds,
+            lon_bounds=lon_bounds,
+        )
+    except ValueError as e:
+        return f"Error: {e}"
 
     if df.empty:
         return "Error: No data found for the given criteria."
@@ -606,6 +621,7 @@ def compare_datasets(
                 "observation_count": len(df),
             }
         except Exception as e:
+            # Errors are recorded per-dataset so the LLM sees partial results
             results[ds_name] = f"Error: {str(e)}"
 
     return json.dumps(results)
