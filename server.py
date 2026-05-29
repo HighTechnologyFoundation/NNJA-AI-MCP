@@ -675,11 +675,10 @@ def _access_dataset(
     var_mapping = _fuzzy_variable_search(chosen_dataset, search_vars)
     valid_vars = list(set(var_mapping.values()))
 
-    if end_time:
-        time = slice(time, end_time)
+    time_sel = slice(time, end_time) if end_time else time
 
     # Filter the valid dataset down to only the subset of interest
-    filtered_dataset = chosen_dataset.sel(time=time, variables=valid_vars)
+    filtered_dataset = chosen_dataset.sel(time=time_sel, variables=valid_vars)
 
     # Load the chosen dataset into a pandas DataFrame
     df = filtered_dataset.load_dataset(backend="pandas")
