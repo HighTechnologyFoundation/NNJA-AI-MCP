@@ -350,7 +350,7 @@ def calculate_spectral_index(
     """
     # Input validation for dataset, since this tool only works for one dataset for now
     if dataset != "seviri-sevasr-NC021042":
-        return f"This tool is currently only implemented for the seviri-sevasr-NC021042 dataset."
+        return f"Error: This tool is currently only implemented for the seviri-sevasr-NC021042 dataset."
 
     # Mapping for SEVIRI channels
     # Channel 4: 3.9um, Channel 9: 10.8um, Channel 10: 12.0um
@@ -360,7 +360,7 @@ def calculate_spectral_index(
     }
 
     if index_name not in mapping:
-        raise ValueError(f"Index '{index_name}' not implemented.")
+        return f"Error: Index '{index_name}' not implemented."
 
     var1, var2 = mapping[index_name]
 
