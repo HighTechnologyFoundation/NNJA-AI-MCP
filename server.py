@@ -618,8 +618,8 @@ def _access_dataset(
     Returns:
         pd.DataFrame: A pandas DataFrame of the requested dataset, sliced down to the subset of interest.
     """
-    # Validate latitude and longitude bounds
-    if len(lat_bounds) != 2 or len(lon_bounds) != 2:
+    # Validate latitude and longitude bounds, if entered
+    if (lat_bounds and len(lat_bounds) != 2) or (lon_bounds and len(lon_bounds) != 2):
         raise ValueError("Latitude and longitude bounds must be lists of two floats: [min, max].")
 
     # Search for the most similar valid dataset available
