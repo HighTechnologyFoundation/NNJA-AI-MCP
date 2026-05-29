@@ -269,7 +269,7 @@ def calculate_trend(
     df = _access_dataset(
         dataset,
         slice(start_time, end_time),
-        [variable, "LAT", "LON", "OBS_DATE"],
+        [variable, "OBS_DATE"],
         rows=-1,
         lat_bounds=lat_bounds,
         lon_bounds=lon_bounds,
@@ -278,7 +278,10 @@ def calculate_trend(
     if df.empty:
         return "Error: No data found for the given criteria."
 
-    actual_var = df.columns[0]  # Get the actual variable name after fuzzy matching
+    # Manually determine the actual variable name of interest (not OBS_DATE, LAT, or LON)
+    actual_var_names = df.columns.tolist()
+    unwanted_cols = ["OBS_DATE", "LAT", "LON"]
+    actual_var = [col for col in actual_var_names if col not in unwanted_cols][0]
 
     # Group by time and calculate mean if there are multiple observations per timestamp
     df_mean = df.groupby("OBS_DATE")[actual_var].mean().reset_index()
