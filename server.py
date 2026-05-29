@@ -145,8 +145,11 @@ def load_data_sample(
     rows: int = 100,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
+    end_time: str | None = None,
 ) -> str:
     """Load a sample of the requested dataset into a JSON string, sliced down to the subset of interest.
+
+    Note: This tool can take a very long time to run, based on spatial bounds, time range, and rows requested.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
@@ -155,12 +158,13 @@ def load_data_sample(
         rows (int, optional): The number of rows of data to include. Defaults to 100.
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
+        end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
     """
     # Access the requested dataset (`rows` must be reasonably small if used by AI)
-    df = _access_dataset(dataset, time, vars, rows, lat_bounds, lon_bounds)
+    df = _access_dataset(dataset, time, vars, rows, lat_bounds, lon_bounds, end_time)
 
     # Convert the DataFrame into a list of dictionaries, which can be returned from the MCP tool
     dicts = df.to_json(orient="records")
@@ -174,24 +178,30 @@ def descriptive_stats_dataset(
     dataset: str,
     time: str,
     vars: list[str],
+    rows: int= -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
+    end_time: str | None = None,
 ) -> str:
     """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string, sliced down to the subset of interest.
+
+    Note: This tool can take a very long time to run,based on spatial bounds, time range, and rows requested.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
+        rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
+        end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the descriptive statistics of the loaded dataset, filtered down to the subset of interest.
     """
     # Access the requested dataset
     df = _access_dataset(
-        dataset, time, vars, lat_bounds=lat_bounds, lon_bounds=lon_bounds
+        dataset, time, vars, rows, lat_bounds, lon_bounds, end_time
     )
 
     # Create a DataFrame of descriptive stats about the data
@@ -268,11 +278,12 @@ def calculate_trend(
     # We use rows=-1 to load all data in the region for better averaging
     df = _access_dataset(
         dataset,
-        slice(start_time, end_time),
+        start_time,
         [variable, "OBS_DATE"],
         rows=-1,
         lat_bounds=lat_bounds,
         lon_bounds=lon_bounds,
+        end_time=end_time,
     )
 
     if df.empty:
@@ -611,21 +622,23 @@ def compare_datasets(
 # Internal function for accessing a dataset
 def _access_dataset(
     dataset: str,
-    time: str | slice,
+    time: str,
     vars: list[str],
     rows: int = 100,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
+    end_time: str | None = None,
 ) -> pd.DataFrame:
     """Access the requested dataset as a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
-        time (str | slice): The time of interest to keep from the dataset in YYYY-MM-DD format or a slice object of start and end times.
+        time (str): The time of interest to keep from the dataset in YYYY-MM-DD format, used as start time if end_time is specified.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         rows (int, optional): The number of rows to sample from the dataset. Defaults to 100.
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
+        end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
         pd.DataFrame: A pandas DataFrame of the requested dataset, sliced down to the subset of interest.
@@ -633,6 +646,10 @@ def _access_dataset(
     # Validate latitude and longitude bounds, if entered
     if (lat_bounds and len(lat_bounds) != 2) or (lon_bounds and len(lon_bounds) != 2):
         raise ValueError("Latitude and longitude bounds must be lists of two floats: [min, max].")
+
+    # Validate end_time input, if provided
+    if end_time and date.fromisoformat(end_time) < date.fromisoformat(time):
+        raise ValueError("end_time must be greater than or equal to time (start_time).")
 
     # Search for the most similar valid dataset available
     chosen_dataset = _fuzzy_dataset_search(dataset)
@@ -646,6 +663,8 @@ def _access_dataset(
         search_vars.append("longitude")
 
     valid_vars = _fuzzy_variable_search(chosen_dataset, search_vars)
+
+    if end_time: time = slice(time, end_time)
 
     # Filter the valid dataset down to only the subset of interest
     filtered_dataset = chosen_dataset.sel(time=time, variables=valid_vars)
