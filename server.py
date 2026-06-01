@@ -82,7 +82,7 @@ def available_datasets() -> str:
     Returns:
         str: A string listing the available NNJA-AI datasets.
     """
-    return f"{CATALOG.list_datasets()}"
+    return str(CATALOG.list_datasets())
 
 
 @mcp.resource("data://datasets", mime_type="application/json")
