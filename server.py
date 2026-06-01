@@ -1,15 +1,16 @@
-from fastmcp import FastMCP
-from nnja_ai import DataCatalog, NNJADataset
-from datetime import date
-from fuzzywuzzy import process
-import re
-from typing import Literal, NamedTuple
-import pandas as pd
-import numpy as np
-from scipy import stats
-import os
 import json
+import os
+import re
+from datetime import date
 from functools import lru_cache
+from typing import Literal, NamedTuple
+
+import numpy as np
+import pandas as pd
+from fastmcp import FastMCP
+from fuzzywuzzy import process
+from nnja_ai import DataCatalog, NNJADataset
+from scipy import stats
 
 mcp = FastMCP("NNJA-AI-MCP")
 
