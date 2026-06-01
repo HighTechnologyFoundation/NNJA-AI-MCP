@@ -241,7 +241,7 @@ def correlation_matrix_dataset(
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
-        vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
+        variables (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         corr_method (Literal["pearson", "kendall", "spearman"], optional): The correlation method to use. Must be "pearson", "kendall", or "spearman". Defaults to "pearson".
         rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
