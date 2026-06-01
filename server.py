@@ -375,14 +375,25 @@ def calculate_spectral_index(
     # Mapping for SEVIRI channels
     # Channel 4: 3.9um, Channel 9: 10.8um, Channel 10: 12.0um
     mapping = {
-        "wildfire_risk": ("RPSEQ10.TMBRST_allsky_00004", "RPSEQ10.TMBRST_allsky_00009"),
-        "cloud_cooling": ("RPSEQ10.TMBRST_allsky_00009", "RPSEQ10.TMBRST_allsky_00010"),
+        "seviri-sevasr-NC021042": {
+            "wildfire_risk": (
+                "RPSEQ10.TMBRST_allsky_00004",
+                "RPSEQ10.TMBRST_allsky_00009",
+            ),
+            "cloud_cooling": (
+                "RPSEQ10.TMBRST_allsky_00009",
+                "RPSEQ10.TMBRST_allsky_00010",
+            ),
+        }
     }
 
-    if index_name not in mapping:
-        return f"Error: Index '{index_name}' not implemented."
+    if dataset not in mapping:
+        return f"Error: Dataset '{dataset}' not supported for index calculation."
 
-    var1, var2 = mapping[index_name]
+    if index_name not in mapping[dataset]:
+        return f"Error: Index '{index_name}' not implemented for dataset '{dataset}'."
+
+    var1, var2 = mapping[dataset][index_name]
 
     try:
         df = _access_dataset(
