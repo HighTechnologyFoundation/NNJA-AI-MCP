@@ -769,6 +769,8 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[st
             else:
                 dataset_vars[var.description] = var.id
 
+    choices = list(dataset_vars.keys()) + list(all_valid_ids)
+    
     for var in remaining_vars:
         if var in all_valid_ids:
             result[var] = var
@@ -776,7 +778,6 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[st
             result[var] = dataset_vars[var]
         else:
             # fuzzy_var is a tuple of form: (best_match, match_score)
-            choices = list(dataset_vars.keys()) + list(all_valid_ids)
             fuzzy_var = process.extractOne(var, choices)
             if fuzzy_var:
                 match_val = fuzzy_var[0]
