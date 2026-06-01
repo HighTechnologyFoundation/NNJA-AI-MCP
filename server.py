@@ -144,7 +144,7 @@ def variables_info(dataset: str) -> str:
 def load_data_sample(
     dataset: str,
     time: str,
-    vars: list[str],
+    variables: list[str],
     rows: int = 100,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
@@ -157,7 +157,7 @@ def load_data_sample(
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
-        vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
+        variables (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         rows (int, optional): The number of rows of data to include. Defaults to 100.
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
@@ -168,7 +168,7 @@ def load_data_sample(
     """
     try:
         df = _access_dataset(
-            dataset, time, vars, rows, lat_bounds, lon_bounds, end_time
+            dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
         )
     except ValueError as e:
         return f"Error: {e}"
@@ -183,7 +183,7 @@ def load_data_sample(
 def descriptive_stats_dataset(
     dataset: str,
     time: str,
-    vars: list[str],
+    variables: list[str],
     rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
@@ -196,7 +196,7 @@ def descriptive_stats_dataset(
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
-        vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
+        variables (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
@@ -207,7 +207,7 @@ def descriptive_stats_dataset(
     """
     try:
         df = _access_dataset(
-            dataset, time, vars, rows, lat_bounds, lon_bounds, end_time
+            dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
         )
     except ValueError as e:
         return f"Error: {e}"
@@ -222,7 +222,7 @@ def descriptive_stats_dataset(
 def correlation_matrix_dataset(
     dataset: str,
     time: str,
-    vars: list[str],
+    variables: list[str],
     corr_method: Literal["pearson", "kendall", "spearman"] = "pearson",
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
@@ -242,7 +242,7 @@ def correlation_matrix_dataset(
     """
     try:
         df = _access_dataset(
-            dataset, time, vars, lat_bounds=lat_bounds, lon_bounds=lon_bounds
+            dataset, time, variables, lat_bounds=lat_bounds, lon_bounds=lon_bounds
         )
     except ValueError as e:
         return f"Error: {e}"
@@ -565,7 +565,7 @@ def calculate_lapse_rate(
 def compare_datasets(
     datasets: list[str],
     time: str,
-    vars: list[str],
+    variables: list[str],
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str:
@@ -575,7 +575,7 @@ def compare_datasets(
     Args:
         datasets (list[str]): List of dataset names to compare.
         time (str): The time of interest (YYYY-MM-DD).
-        vars (list[str]): Variables to compare (uses virtual mapping).
+        variables (list[str]): Variables to compare (uses virtual mapping).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
@@ -591,7 +591,7 @@ def compare_datasets(
             df = _access_dataset(
                 ds_name,
                 time,
-                vars,
+                variables,
                 rows=-1,
                 lat_bounds=lat_bounds,
                 lon_bounds=lon_bounds,
@@ -613,7 +613,7 @@ def compare_datasets(
 
             # Map requested variable names to actual IDs using the mapping from _access_dataset
             mapped_means = {}
-            for v in vars:
+            for v in variables:
                 actual_v = df._var_mapping.get(v)
                 if actual_v and actual_v in means:
                     mapped_means[v] = means[actual_v]
@@ -633,7 +633,7 @@ def compare_datasets(
 def _access_dataset(
     dataset: str,
     time: str,
-    vars: list[str],
+    variables: list[str],
     rows: int = 100,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
@@ -644,7 +644,7 @@ def _access_dataset(
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format, used as start time if end_time is specified.
-        vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
+        variables (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         rows (int, optional): The number of rows to sample from the dataset. Defaults to 100.
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
@@ -668,7 +668,7 @@ def _access_dataset(
 
     # Search for valid variable names using the input variable list
     # Always include LAT and LON for spatial subsetting if requested
-    search_vars = list(vars)
+    search_vars = list(variables)
     if lat_bounds and "LAT" not in search_vars and "latitude" not in search_vars:
         search_vars.append("latitude")
     if lon_bounds and "LON" not in search_vars and "longitude" not in search_vars:
