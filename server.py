@@ -808,7 +808,7 @@ def _data_category(
         is_night (bool, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk.
 
     Returns:
-        np.ndarray: An array of category labels for the lapse rates.
+        np.ndarray: An array of category labels for the variable values analyzed.
     """
     match analysis:
         case "lapse_rate":
