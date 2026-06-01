@@ -744,7 +744,9 @@ def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
 
 
 # Internal function for fuzzy searching of dataset variables
-def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[str, str]:
+def _fuzzy_variable_search(
+    dataset: NNJADataset, var_list: list[str]
+) -> dict[str, str | None]:
     """Uses fuzzy matching to get valid variables to filter a dataset down to.
 
     Args:
@@ -752,9 +754,9 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[st
         var_list (list[str]): A list of variables to search for actual valid column names.
 
     Returns:
-        dict[str, str]: A mapping of each input variable name to its resolved actual variable ID.
+        dict[str, str | None]: A mapping of each input variable name to its resolved actual variable ID.
     """
-    result: dict[str, str] = {}
+    result: dict[str, str | None] = {}
     remaining_vars = []
 
     for var in var_list:
