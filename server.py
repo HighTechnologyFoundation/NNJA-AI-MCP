@@ -200,8 +200,6 @@ def descriptive_stats_dataset(
 ) -> str:
     """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string, sliced down to the subset of interest.
 
-    Note: This tool can take a very long time to run,based on spatial bounds, time range, and rows requested.
-
     Args:
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
