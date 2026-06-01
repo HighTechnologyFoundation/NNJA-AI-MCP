@@ -707,11 +707,8 @@ def _access_dataset(
     if rows > 0:
         df = df[:rows]
 
-    # Add the dataset name and var mapping as an attribute to the DataFrame for tools that need it
-    result = DatasetResult(df=df, var_mapping=var_mapping)
-
-    # Return the DataFrame
-    return result
+    # Return the dataset (and var mapping metadata for tools that need it)
+    return DatasetResult(data=df, var_mapping=var_mapping)
 
 
 # Internal function for fuzzy searching of dataset names
