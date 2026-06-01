@@ -606,11 +606,7 @@ def compare_datasets(
             numeric_df = df.select_dtypes(include=[np.number])
 
             # Ensure means is a dictionary
-            means_result = numeric_df.mean()
-            if isinstance(means_result, (int, float, np.number)):
-                means = {numeric_df.columns[0]: float(means_result)}
-            else:
-                means = means_result.to_dict()
+            means = numeric_df.mean().to_dict()
 
             # Map requested variable names to actual IDs using the mapping from _access_dataset
             mapped_means = {}
