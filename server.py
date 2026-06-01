@@ -712,7 +712,7 @@ def _access_dataset(
 
     # NOTE: DataFrame size must be reduced to fully fit into AI free-tier input and output token limits
     if rows > 0:
-        df = df[:rows]
+        df = df.head(rows)
 
     # Return the dataset (and var mapping metadata for tools that need it)
     return DatasetResult(data=df, var_mapping=var_mapping)
