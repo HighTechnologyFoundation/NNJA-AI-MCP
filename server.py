@@ -368,13 +368,9 @@ def calculate_spectral_index(
     Returns:
         str: A JSON string with the calculated index statistics.
     """
-    # Input validation for dataset, since this tool only works for one dataset for now
-    if dataset != "seviri-sevasr-NC021042":
-        return "Error: This tool is currently only implemented for the seviri-sevasr-NC021042 dataset."
-
-    # Mapping for SEVIRI channels
-    # Channel 4: 3.9um, Channel 9: 10.8um, Channel 10: 12.0um
     mapping = {
+        # Mapping for SEVIRI channels
+        # Channel 4: 3.9um, Channel 9: 10.8um, Channel 10: 12.0um
         "seviri-sevasr-NC021042": {
             "wildfire_risk": (
                 "RPSEQ10.TMBRST_allsky_00004",
