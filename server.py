@@ -3,7 +3,7 @@ from nnja_ai import DataCatalog, NNJADataset
 from datetime import date
 from fuzzywuzzy import process
 import re
-from typing import Literal
+from typing import Literal, NamedTuple
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -57,6 +57,11 @@ VIRTUAL_VARIABLE_REGISTRY = {
     "latitude": {"DEFAULT": "LAT"},
     "longitude": {"DEFAULT": "LON"},
 }
+
+class DatasetResult(NamedTuple):
+    """A named tuple to hold the dataset result along with metadata for tools that need it."""
+    data: pd.DataFrame
+    var_mapping: dict[str, str]
 
 
 @mcp.tool()
@@ -169,7 +174,7 @@ def load_data_sample(
     try:
         df = _access_dataset(
             dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
-        )
+        ).data
     except ValueError as e:
         return f"Error: {e}"
 
@@ -208,7 +213,7 @@ def descriptive_stats_dataset(
     try:
         df = _access_dataset(
             dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
-        )
+        ).data
     except ValueError as e:
         return f"Error: {e}"
 
@@ -243,7 +248,7 @@ def correlation_matrix_dataset(
     try:
         df = _access_dataset(
             dataset, time, variables, lat_bounds=lat_bounds, lon_bounds=lon_bounds
-        )
+        ).data
     except ValueError as e:
         return f"Error: {e}"
 
@@ -289,7 +294,7 @@ def calculate_trend(
             lat_bounds=lat_bounds,
             lon_bounds=lon_bounds,
             end_time=end_time,
-        )
+        ).data
     except ValueError as e:
         return f"Error: {e}"
 
@@ -375,7 +380,7 @@ def calculate_spectral_index(
             rows=5000,
             lat_bounds=lat_bounds,
             lon_bounds=lon_bounds,
-        )
+        ).data
     except ValueError as e:
         return f"Error: {e}"
 
@@ -508,7 +513,7 @@ def calculate_lapse_rate(
             rows=1000,
             lat_bounds=lat_bounds,
             lon_bounds=lon_bounds,
-        )
+        ).data
     except ValueError as e:
         return f"Error: {e}"
 
@@ -589,7 +594,7 @@ def compare_datasets(
         try:
             # Access data for this dataset
             # We use rows=-1 to load all data in the region for better averaging
-            df = _access_dataset(
+            dataset = _access_dataset(
                 ds_name,
                 time,
                 variables,
@@ -597,6 +602,8 @@ def compare_datasets(
                 lat_bounds=lat_bounds,
                 lon_bounds=lon_bounds,
             )
+
+            df = dataset.data
 
             if df.empty:
                 results[ds_name] = "No data found in this region."
@@ -611,7 +618,7 @@ def compare_datasets(
             # Map requested variable names to actual IDs using the mapping from _access_dataset
             mapped_means = {}
             for v in variables:
-                actual_v = df._var_mapping.get(v)
+                actual_v = dataset.var_mapping.get(v)
                 if actual_v and actual_v in means:
                     mapped_means[v] = means[actual_v]
 
@@ -635,7 +642,7 @@ def _access_dataset(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
-) -> pd.DataFrame:
+) -> DatasetResult:
     """Access the requested dataset as a pandas DataFrame, sliced down to the subset of interest.
 
     Args:
@@ -648,7 +655,7 @@ def _access_dataset(
         end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
-        pd.DataFrame: A pandas DataFrame of the requested dataset, sliced down to the subset of interest.
+        DatasetResult: A named tuple containing the dataset result and metadata.
     """
     # Validate latitude and longitude bounds, if entered
     if (lat_bounds and len(lat_bounds) != 2) or (lon_bounds and len(lon_bounds) != 2):
@@ -699,11 +706,10 @@ def _access_dataset(
         df = df[:rows]
 
     # Add the dataset name and var mapping as an attribute to the DataFrame for tools that need it
-    df._name = chosen_dataset.name
-    df._var_mapping = var_mapping
+    result = DatasetResult(df=df, var_mapping=var_mapping)
 
     # Return the DataFrame
-    return df
+    return result
 
 
 # Internal function for fuzzy searching of dataset names
