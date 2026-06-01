@@ -813,7 +813,7 @@ def _data_category(
     analysis: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"],
     df: pd.DataFrame,
     var: str,
-    is_night: bool | None = None,
+    is_night: bool = True,
 ) -> np.ndarray:
     """Categorize data analysis values based on typical conditions and any other provided factors.
 
@@ -821,7 +821,7 @@ def _data_category(
         analysis (Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]): The type of analysis results to categorize.
         df (pd.DataFrame): The DataFrame containing the relevant variables.
         var (str): The name of the variable needed to make specific classifications.
-        is_night (bool, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk.
+        is_night (bool, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk. Defaults to True.
 
     Returns:
         np.ndarray: An array of category labels for the variable values analyzed.
