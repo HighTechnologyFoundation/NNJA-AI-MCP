@@ -635,9 +635,9 @@ def compare_datasets(
                 "means": mapped_means,
                 "observation_count": len(df),
             }
-        except Exception as e:
+        except ValueError as e:
             # Errors are recorded per-dataset so the LLM sees partial results
-            results[ds_name] = f"Error: {str(e)}"
+            results[ds_name] = f"Error: {e}"
 
     return json.dumps(results)
 
