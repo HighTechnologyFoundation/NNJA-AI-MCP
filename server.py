@@ -292,7 +292,7 @@ def calculate_trend(
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
     Returns:
-        str: A JSON string with trend coefficient, p-value, and intercept.
+        str: A JSON string with slope, intercept, r-squared, p-value, and supporting metadata.
     """
 
     try:
