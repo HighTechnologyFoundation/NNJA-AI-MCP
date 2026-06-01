@@ -495,7 +495,7 @@ def calculate_lapse_rate(
     # t variables are temperature at the pressure levels
     t1_var = f"TMDB_PRLC{level1_pa}"
     t2_var = f"TMDB_PRLC{level2_pa}"
-    
+
     # z variables are geopotential height at the pressure levels
     z1_var = f"GP10_PRLC{level1_pa}"
     z2_var = f"GP10_PRLC{level2_pa}"
@@ -714,7 +714,7 @@ def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
         dataset (str): The name of the dataset to search for.
 
     Returns:
-        str: The most similar valid dataset name.
+        NNJADataset: The most similar valid dataset.
     """
     # Search for valid dataset names using the input dataset name
     valid_datasets = CATALOG.search(dataset)
