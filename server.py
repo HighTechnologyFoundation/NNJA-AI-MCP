@@ -710,7 +710,6 @@ def _access_dataset(
     if lon_bounds:
         df = df[(df["LON"] >= lon_bounds[0]) & (df["LON"] <= lon_bounds[1])]
 
-    # NOTE: DataFrame size must be reduced to fully fit into AI free-tier input and output token limits
     if rows > 0:
         df = df.head(rows)
 
