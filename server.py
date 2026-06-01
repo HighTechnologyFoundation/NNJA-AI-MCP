@@ -58,8 +58,10 @@ VIRTUAL_VARIABLE_REGISTRY = {
     "longitude": {"DEFAULT": "LON"},
 }
 
+
 class DatasetResult(NamedTuple):
     """A named tuple to hold the dataset result along with metadata for tools that need it."""
+
     data: pd.DataFrame
     var_mapping: dict[str, str]
 
@@ -232,6 +234,7 @@ def correlation_matrix_dataset(
     rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
+    end_time: str | None = None,
 ) -> str:
     """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string, sliced down to the subset of interest.
 
@@ -243,13 +246,14 @@ def correlation_matrix_dataset(
         rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
+        end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
         str: A JSON string that can be easily converted to a pandas DataFrame of the correlation matrix of the loaded dataset, filtered down to the subset of interest.
     """
     try:
         df = _access_dataset(
-            dataset, time, variables, rows=rows, lat_bounds=lat_bounds, lon_bounds=lon_bounds
+            dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -296,10 +300,10 @@ def calculate_trend(
             dataset,
             start_time,
             [variable, "OBS_DATE"],
-            rows=rows,
-            lat_bounds=lat_bounds,
-            lon_bounds=lon_bounds,
-            end_time=end_time,
+            rows,
+            lat_bounds,
+            lon_bounds,
+            end_time,
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -382,12 +386,7 @@ def calculate_spectral_index(
 
     try:
         df = _access_dataset(
-            dataset,
-            time,
-            [var1, var2],
-            rows=rows,
-            lat_bounds=lat_bounds,
-            lon_bounds=lon_bounds,
+            dataset, time, [var1, var2], rows, lat_bounds, lon_bounds
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -517,12 +516,7 @@ def calculate_lapse_rate(
 
     try:
         df = _access_dataset(
-            dataset,
-            time,
-            required_vars,
-            rows=rows,
-            lat_bounds=lat_bounds,
-            lon_bounds=lon_bounds,
+            dataset, time, required_vars, rows, lat_bounds, lon_bounds
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -585,6 +579,7 @@ def compare_datasets(
     rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
+    end_time: str | None = None,
 ) -> str:
     """Compare multiple datasets by aligning them spatially for a given day.
     Calculates the regional mean for the requested variables across all specified datasets.
@@ -596,6 +591,7 @@ def compare_datasets(
         rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
+        end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
         str: A JSON string with the compared statistics.
@@ -606,12 +602,7 @@ def compare_datasets(
         try:
             # Access data for this dataset
             dataset = _access_dataset(
-                ds_name,
-                time,
-                variables,
-                rows=rows,
-                lat_bounds=lat_bounds,
-                lon_bounds=lon_bounds,
+                ds_name, time, variables, rows, lat_bounds, lon_bounds, end_time
             )
 
             df = dataset.data
