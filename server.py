@@ -489,13 +489,16 @@ def calculate_lapse_rate(
     dataset = "conv-adpupa-NC002001"
 
     # Map hPa to Pa variable suffixes
-    l1 = level1_hpa * 100
-    l2 = level2_hpa * 100
+    level1_pa = level1_hpa * 100
+    level2_pa = level2_hpa * 100
 
-    t1_var = f"TMDB_PRLC{l1}"
-    t2_var = f"TMDB_PRLC{l2}"
-    z1_var = f"GP10_PRLC{l1}"
-    z2_var = f"GP10_PRLC{l2}"
+    # t variables are temperature at the pressure levels
+    t1_var = f"TMDB_PRLC{level1_pa}"
+    t2_var = f"TMDB_PRLC{level2_pa}"
+    
+    # z variables are geopotential height at the pressure levels
+    z1_var = f"GP10_PRLC{level1_pa}"
+    z2_var = f"GP10_PRLC{level2_pa}"
 
     required_vars = [t1_var, t2_var, z1_var, z2_var]
 
