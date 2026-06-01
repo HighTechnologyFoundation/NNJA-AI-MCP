@@ -229,6 +229,7 @@ def correlation_matrix_dataset(
     time: str,
     variables: list[str],
     corr_method: Literal["pearson", "kendall", "spearman"] = "pearson",
+    rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str:
@@ -239,6 +240,7 @@ def correlation_matrix_dataset(
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format.
         vars (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
         corr_method (Literal["pearson", "kendall", "spearman"], optional): The correlation method to use. Must be "pearson", "kendall", or "spearman". Defaults to "pearson".
+        rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
 
@@ -247,7 +249,7 @@ def correlation_matrix_dataset(
     """
     try:
         df = _access_dataset(
-            dataset, time, variables, lat_bounds=lat_bounds, lon_bounds=lon_bounds
+            dataset, time, variables, rows=rows, lat_bounds=lat_bounds, lon_bounds=lon_bounds
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -268,6 +270,7 @@ def calculate_trend(
     start_time: str,
     end_time: str,
     variable: str,
+    rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str:
@@ -280,6 +283,7 @@ def calculate_trend(
         start_time (str): Start date (YYYY-MM-DD).
         end_time (str): End date (YYYY-MM-DD).
         variable (str): The variable to calculate the trend for.
+        rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
@@ -292,7 +296,7 @@ def calculate_trend(
             dataset,
             start_time,
             [variable, "OBS_DATE"],
-            rows=-1,
+            rows=rows,
             lat_bounds=lat_bounds,
             lon_bounds=lon_bounds,
             end_time=end_time,
@@ -338,6 +342,7 @@ def calculate_spectral_index(
     dataset: str,
     time: str,
     index_name: Literal["wildfire_risk", "cloud_cooling"],
+    rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str:
@@ -352,6 +357,7 @@ def calculate_spectral_index(
         index_name (str): The index to calculate.
             - "wildfire_risk": Based on difference between shortwave (3.9um) and longwave (10.8um) IR.
             - "cloud_cooling": Based on brightness temperature differences between 10.8um and 12.0um.
+        rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
@@ -379,7 +385,7 @@ def calculate_spectral_index(
             dataset,
             time,
             [var1, var2],
-            rows=5000,
+            rows=rows,
             lat_bounds=lat_bounds,
             lon_bounds=lon_bounds,
         ).data
@@ -471,6 +477,7 @@ def calculate_spectral_index(
 @mcp.tool()
 def calculate_lapse_rate(
     time: str,
+    rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     level1_hpa: int = 1000,
@@ -483,6 +490,7 @@ def calculate_lapse_rate(
 
     Args:
         time (str): The time of interest (YYYY-MM-DD).
+        rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries.
         lon_bounds (list[float], optional): Longitude boundaries.
         level1_hpa (int): First pressure level in hPa (e.g., 1000).
@@ -512,7 +520,7 @@ def calculate_lapse_rate(
             dataset,
             time,
             required_vars,
-            rows=1000,
+            rows=rows,
             lat_bounds=lat_bounds,
             lon_bounds=lon_bounds,
         ).data
@@ -574,6 +582,7 @@ def compare_datasets(
     datasets: list[str],
     time: str,
     variables: list[str],
+    rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
 ) -> str:
@@ -584,6 +593,7 @@ def compare_datasets(
         datasets (list[str]): List of dataset names to compare.
         time (str): The time of interest (YYYY-MM-DD).
         variables (list[str]): Variables to compare (uses virtual mapping).
+        rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
@@ -595,12 +605,11 @@ def compare_datasets(
     for ds_name in datasets:
         try:
             # Access data for this dataset
-            # We use rows=-1 to load all data in the region for better averaging
             dataset = _access_dataset(
                 ds_name,
                 time,
                 variables,
-                rows=-1,
+                rows=rows,
                 lat_bounds=lat_bounds,
                 lon_bounds=lon_bounds,
             )
@@ -640,7 +649,7 @@ def _access_dataset(
     dataset: str,
     time: str,
     variables: list[str],
-    rows: int = 100,
+    rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
@@ -651,7 +660,7 @@ def _access_dataset(
         dataset (str): The name of the dataset to load, which will be used to search for the most similar valid dataset name.
         time (str): The time of interest to keep from the dataset in YYYY-MM-DD format, used as start time if end_time is specified.
         variables (list[str]): A list of columns of interest to keep from the dataset, which will be fuzzy matched to get valid columns names.
-        rows (int, optional): The number of rows to sample from the dataset. Defaults to 100.
+        rows (int, optional): The number of rows to sample from the dataset. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max] for spatial subsetting.
         lon_bounds (list[float], optional): Longitude boundaries [min, max] for spatial subsetting.
         end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
