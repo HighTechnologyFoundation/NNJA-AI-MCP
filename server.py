@@ -12,6 +12,9 @@ import json
 
 mcp = FastMCP("NNJA-AI-MCP")
 
+# Initialize the NNJA_AI dataset catalog to avoid repeated network usage
+CATALOG = DataCatalog()
+
 # Virtual Variable Registry for semantic mapping across datasets
 VIRTUAL_VARIABLE_REGISTRY = {
     "temperature": {
@@ -79,7 +82,7 @@ def available_datasets() -> str:
     Returns:
         str: A string listing the available NNJA-AI datasets.
     """
-    return f"{DataCatalog().list_datasets()}"
+    return f"{CATALOG.list_datasets()}"
 
 
 @mcp.resource("data://datasets", mime_type="application/json")
@@ -89,7 +92,7 @@ def list_datasets() -> list[str]:
     Returns:
         list[str]: A list of available NNJA-AI dataset names.
     """
-    return DataCatalog().list_datasets()
+    return CATALOG.list_datasets()
 
 
 @mcp.tool()
@@ -709,18 +712,15 @@ def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
     Returns:
         str: The most similar valid dataset name.
     """
-    # Initialize the NNJA_AI dataset catalog
-    catalog = DataCatalog()
-
     # Search for valid dataset names using the input dataset name
-    valid_datasets = catalog.search(dataset)
+    valid_datasets = CATALOG.search(dataset)
 
     # If no valid datasets are found, raise an error
     if not valid_datasets:
         raise ValueError(f"No dataset matching '{dataset}' found.")
 
     # Get and return a valid dataset
-    return catalog[valid_datasets[0].name]
+    return CATALOG[valid_datasets[0].name]
 
 
 # Internal function for fuzzy searching of dataset variables
