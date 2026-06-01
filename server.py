@@ -696,7 +696,7 @@ def _access_dataset(
     # Error handling for any unresolved variables
     unresolved = [v for v, resolved in var_mapping.items() if resolved is None]
     if unresolved:
-        return f"Error: Could not resolve variable(s): {unresolved}"
+        raise ValueError(f"Could not resolve variable(s): {unresolved}")
 
     valid_vars = list(set(var_mapping.values()))
 
