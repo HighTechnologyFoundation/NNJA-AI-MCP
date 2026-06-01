@@ -672,6 +672,12 @@ def _access_dataset(
         search_vars.append("longitude")
 
     var_mapping = _fuzzy_variable_search(chosen_dataset, search_vars)
+
+    # Error handling for any unresolved variables
+    unresolved = [v for v, resolved in var_mapping.items() if resolved is None]
+    if unresolved:
+        return f"Error: Could not resolve variable(s): {unresolved}"
+
     valid_vars = list(set(var_mapping.values()))
 
     time_sel = slice(time, end_time) if end_time else time
@@ -776,12 +782,14 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[st
             result[var] = dataset_vars[var]
         else:
             # fuzzy_var is a tuple of form: (best_match, match_score)
-            fuzzy_var = process.extractOne(var, choices)
+            fuzzy_var = process.extractOne(var, choices, score_cutoff=60)
             if fuzzy_var:
                 match_val = fuzzy_var[0]
                 result[var] = (
                     match_val if match_val in all_valid_ids else dataset_vars[match_val]
                 )
+            else:
+                result[var] = None
 
     return result
 
