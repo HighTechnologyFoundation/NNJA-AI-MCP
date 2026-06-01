@@ -273,6 +273,8 @@ def calculate_trend(
 ) -> str:
     """Calculate the linear trend for a specific variable over a time range.
 
+    Note: Requires that the dataset contains the OBS_DATE variable/column.
+
     Args:
         dataset (str): The name of the dataset.
         start_time (str): Start date (YYYY-MM-DD).
