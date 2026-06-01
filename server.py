@@ -9,6 +9,7 @@ import numpy as np
 from scipy import stats
 import os
 import json
+from functools import lru_cache
 
 mcp = FastMCP("NNJA-AI-MCP")
 
@@ -770,22 +771,8 @@ def _fuzzy_variable_search(
     if not remaining_vars:
         return result
 
-    # Initialize a dictionary to hold the valid variables and a set of all valid IDs
-    all_valid_ids = set()
-    dataset_vars = {}
-
-    for var_category in dataset.list_variables().values():
-        for var in var_category:
-            all_valid_ids.add(var.id)
-            matches = re.findall(r"\d+", var.id)
-
-            # If the variable name has numbers, use the LAST one for the description mapping
-            # (as it usually indicates the channel or pressure level)
-            if matches:
-                # Append the number to the end of the description (without leading 0s)
-                dataset_vars[var.description + " " + str(int(matches[-1]))] = var.id
-            else:
-                dataset_vars[var.description] = var.id
+    # Use the cached variable index when possible for efficiency
+    all_valid_ids, dataset_vars = _build_variable_index(dataset)
 
     choices = list(dataset_vars.keys()) + list(all_valid_ids)
 
@@ -908,6 +895,33 @@ def _data_category(
             raise ValueError(f"Unknown categorization type: {analysis}")
 
     return np.select(conditions, categories, default="Unclassified")
+
+
+# Internal function to cache variable metadata for quicker repeated access
+@lru_cache(maxsize=32)
+def _build_variable_index(dataset: NNJADataset) -> tuple[set[str], dict[str, str]]:
+    """Build a searchable index of variable IDs and descriptions for a dataset.
+
+    Args:
+        dataset (NNJADataset): The dataset to build the variable index for.
+
+    Returns:
+        tuple[set[str], dict[str, str]]: A tuple of (all_valid_ids, dataset_vars) where
+            all_valid_ids is a set of all variable IDs and dataset_vars maps descriptions to IDs.
+    """
+    all_valid_ids = set()
+    dataset_vars = {}
+
+    for var_category in dataset.list_variables().values():
+        for var in var_category:
+            all_valid_ids.add(var.id)
+            matches = re.findall(r"\d+", var.id)
+            # If the variable name has numbers, use the LAST one for the description mapping
+            # (as it usually indicates the channel or pressure level)
+            key = var.description + (" " + str(int(matches[-1])) if matches else "")
+            dataset_vars[key] = var.id
+
+    return all_valid_ids, dataset_vars
 
 
 # Run the server when this Python file runs
