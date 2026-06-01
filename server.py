@@ -526,7 +526,8 @@ def calculate_lapse_rate(
     )
 
     # Filter out infinities or NaNs
-    df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=["lapse_rate"])
+    df["lapse_rate"] = df["lapse_rate"].replace([np.inf, -np.inf], np.nan)
+    df = df.dropna(subset=["lapse_rate"])
 
     if df.empty:
         return (
@@ -770,7 +771,7 @@ def _fuzzy_variable_search(dataset: NNJADataset, var_list: list[str]) -> dict[st
                 dataset_vars[var.description] = var.id
 
     choices = list(dataset_vars.keys()) + list(all_valid_ids)
-    
+
     for var in remaining_vars:
         if var in all_valid_ids:
             result[var] = var
