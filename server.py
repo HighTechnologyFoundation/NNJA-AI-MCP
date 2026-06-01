@@ -535,7 +535,7 @@ def calculate_lapse_rate(
     if missing:
         return f"Error: Missing variables in dataset: {missing}"
 
-    # Calculate lapse rate: - (T2 - T1) / ((Z2 - Z1) / 1000)  -> K/km
+    # Calculate lapse rate: - (T2 - T1) / ((Z2 - Z1) / 10000)  -> K/km
     # Note: GP10 is geopotential height in geopotential decimeters
     df["lapse_rate"] = -(df[t2_var] - df[t1_var]) / (
         (df[z2_var] - df[z1_var]) / 10000.0
