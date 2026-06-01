@@ -3,7 +3,7 @@ import os
 import re
 from datetime import date
 from functools import lru_cache
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -407,77 +407,14 @@ def calculate_spectral_index(
 
     # Calculate index (brightness temperature difference)
     df["index_value"] = df[var1] - df[var2]
-    desc_stats = df["index_value"].describe().to_dict()
 
     match index_name:
-        # Stats and additional categorization for cloud cooling index
         case "cloud_cooling":
-            # Apply vectorized cloud cooling categorization to the data, providing bt_108
-            df["index_category"] = _data_category("cloud_cooling", df, var1)
-
-            # Get the relative frequency distribution of index categories
-            distribution = df["index_category"].value_counts(normalize=True).to_dict()
-            distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
-
-            # Combine the results into a structured response to return
-            result = {
-                "summary": {
-                    "dominant_category": df["index_category"].mode()[0],
-                    "mean_index_value": round(desc_stats["mean"], 2),
-                    "sample_size": int(desc_stats["count"]),
-                },
-                "index_distribution": distribution,
-                "raw_stats": {
-                    k: round(v, 2) if isinstance(v, (int, float)) else v
-                    for k, v in desc_stats.items()
-                },
-            }
-
-            return json.dumps(result)
-
+            return json.dumps(_calculate_cloud_cooling_index(df, var1))
         case "wildfire_risk":
-            # Parse UTC hour from NNJA-AI time configuration
-            if "T" in time:
-                utc_hour = int(time.split("T")[1].split(":")[0])
-            else:
-                utc_hour = 0  # Default to 0 UTC if no time provided
-
-            # Extract spatial layout to deduce Local Solar Time over SEVIRI disk
-            if lon_bounds and len(lon_bounds) == 2:
-                avg_lon = sum(lon_bounds) / 2
-            else:
-                avg_lon = 0.0  # Default to Prime Meridian
-
-            # Solar time adjustment (15 degrees longitude = 1 hour difference from UTC)
-            local_hour = (utc_hour + int(avg_lon / 15.0)) % 24
-            is_night = local_hour < 6 or local_hour > 18
-
-            # Apply vectorized wildfire risk categorization to the data, providing bt_39 and the is_night flag
-            df["index_category"] = _data_category("wildfire_risk", df, var1, is_night)
-
-            # Get the relative frequency distribution of index categories
-            distribution = df["index_category"].value_counts(normalize=True).to_dict()
-            distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
-
-            # Combine the results into a structured response to return
-            result = {
-                "summary": {
-                    "dominant_category": df["index_category"].mode()[0],
-                    "mean_index_value": round(desc_stats["mean"], 2),
-                    "active_wildfire_pixels": int(
-                        (df["index_category"] == "High Risk (Active Wildfire)").sum()
-                    ),
-                    "thresholds_used": "Nighttime" if is_night else "Daytime",
-                    "calculated_local_hour": round(local_hour, 1),
-                    "sample_size": int(desc_stats["count"]),
-                },
-                "index_distribution": distribution,
-                "raw_stats": {
-                    k: round(v, 2) if isinstance(v, (int, float)) else v
-                    for k, v in desc_stats.items()
-                },
-            }
-            return json.dumps(result)
+            return json.dumps(
+                _calculate_wildfire_risk_index(df, var1, time, lon_bounds)
+            )
 
 
 @mcp.tool()
@@ -790,6 +727,108 @@ def _fuzzy_variable_search(
             else:
                 result[var] = None
 
+    return result
+
+
+def _calculate_cloud_cooling_index(
+    df: pd.DataFrame,
+    bt_108: str,
+) -> dict[str, Any]:
+    """Calculate a wildfire risk index for satellite data based on difference between shortwave (3.9um) and longwave (10.8um) IR.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the satellite data.
+        bt_108 (str): The name of the variable representing the brightness temperature at 10.8um.
+
+    Returns:
+        dict[str, Any]: A dictionary with the calculated index statistics.
+    """
+    desc_stats = df["index_value"].describe().to_dict()
+
+    # Apply vectorized cloud cooling categorization to the data, providing bt_108
+    df["index_category"] = _data_category("cloud_cooling", df, bt_108)
+
+    # Get the relative frequency distribution of index categories
+    distribution = df["index_category"].value_counts(normalize=True).to_dict()
+    distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
+
+    # Combine the results into a structured response to return
+    result = {
+        "summary": {
+            "dominant_category": df["index_category"].mode()[0],
+            "mean_index_value": round(desc_stats["mean"], 2),
+            "sample_size": int(desc_stats["count"]),
+        },
+        "index_distribution": distribution,
+        "raw_stats": {
+            k: round(v, 2) if isinstance(v, (int, float)) else v
+            for k, v in desc_stats.items()
+        },
+    }
+
+    return result
+
+
+def _calculate_wildfire_risk_index(
+    df: pd.DataFrame,
+    bt_39: str,
+    time: str,
+    lon_bounds: list[float] | None = None,
+) -> dict[str, Any]:
+    """Calculate a wildfire risk index for satellite data based on difference between shortwave (3.9um) and longwave (10.8um) IR.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the satellite data.
+        bt_39 (str): The name of the variable representing the brightness temperature at 3.9um.
+        time (str): The time of interest (YYYY-MM-DD).
+        lon_bounds (list[float], optional): Longitude boundaries [min, max].
+
+    Returns:
+        dict[str, Any]: A dictionary with the calculated index statistics.
+    """
+    desc_stats = df["index_value"].describe().to_dict()
+
+    # Parse UTC hour from NNJA-AI time configuration
+    if "T" in time:
+        utc_hour = int(time.split("T")[1].split(":")[0])
+    else:
+        utc_hour = 0  # Default to 0 UTC if no time provided
+
+    # Extract spatial layout to deduce Local Solar Time over SEVIRI disk
+    if lon_bounds and len(lon_bounds) == 2:
+        avg_lon = sum(lon_bounds) / 2
+    else:
+        avg_lon = 0.0  # Default to Prime Meridian
+
+    # Solar time adjustment (15 degrees longitude = 1 hour difference from UTC)
+    local_hour = (utc_hour + int(avg_lon / 15.0)) % 24
+    is_night = local_hour < 6 or local_hour > 18
+
+    # Apply vectorized wildfire risk categorization to the data, providing bt_39 and the is_night flag
+    df["index_category"] = _data_category("wildfire_risk", df, bt_39, is_night)
+
+    # Get the relative frequency distribution of index categories
+    distribution = df["index_category"].value_counts(normalize=True).to_dict()
+    distribution = {k: round(v * 100, 2) for k, v in distribution.items()}
+
+    # Combine the results into a structured response to return
+    result = {
+        "summary": {
+            "dominant_category": df["index_category"].mode()[0],
+            "mean_index_value": round(desc_stats["mean"], 2),
+            "active_wildfire_pixels": int(
+                (df["index_category"] == "High Risk (Active Wildfire)").sum()
+            ),
+            "thresholds_used": "Nighttime" if is_night else "Daytime",
+            "calculated_local_hour": round(local_hour, 1),
+            "sample_size": int(desc_stats["count"]),
+        },
+        "index_distribution": distribution,
+        "raw_stats": {
+            k: round(v, 2) if isinstance(v, (int, float)) else v
+            for k, v in desc_stats.items()
+        },
+    }
     return result
 
 
