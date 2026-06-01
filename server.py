@@ -63,7 +63,7 @@ class DatasetResult(NamedTuple):
     """A named tuple to hold the dataset result along with metadata for tools that need it."""
 
     data: pd.DataFrame
-    var_mapping: dict[str, str]
+    var_mapping: dict[str, str | None]
 
 
 @mcp.tool()
