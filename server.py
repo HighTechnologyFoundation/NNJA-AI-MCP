@@ -101,7 +101,13 @@ VIRTUAL_VARIABLE_REGISTRY = {
 
 
 class DatasetResult(NamedTuple):
-    """A named tuple to hold the dataset result along with metadata for tools that need it."""
+    """A named tuple to hold the dataset result along with metadata for tools that need it.
+    
+    Attributes:
+        data (pd.DataFrame): The resulting dataset as a pandas DataFrame.
+        var_mapping (dict[str, str | None]): A mapping from requested variable names to actual dataset variable IDs.
+            A value of None indicates that the variable could not be resolved.
+    """
 
     data: pd.DataFrame
     var_mapping: dict[str, str | None]
