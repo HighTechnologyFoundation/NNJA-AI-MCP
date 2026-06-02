@@ -630,7 +630,7 @@ def compare_datasets(
             # ValueErrors are recorded per-dataset so the LLM sees partial results
             return f"Error: {e}"
 
-    with ThreadPoolExecutor() as pool:
+    with ThreadPoolExecutor(max_workers=min(8, len(datasets) or 1)) as pool:
         all_results = pool.map(_load_one, datasets)
 
     return json.dumps(dict(zip(datasets, all_results)))
