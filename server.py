@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from functools import lru_cache
 from typing import Any, Literal, NamedTuple
@@ -540,9 +541,16 @@ def compare_datasets(
     Returns:
         str: A JSON string with the compared statistics.
     """
-    results = {}
 
-    for ds_name in datasets:
+    def _load_one(ds_name: str) -> str:
+        """Helper function to load and calculate mean for one dataset.
+
+        Args:
+            ds_name (str): The name of the dataset to load and analyze.
+
+        Returns:
+            str: A JSON string with the mean values for the requested variables in this dataset, or an error message if loading fails.
+        """
         try:
             # Access data for this dataset
             dataset = _access_dataset(
@@ -552,8 +560,7 @@ def compare_datasets(
             df = dataset.data
 
             if df.empty:
-                results[ds_name] = "No data found in this region."
-                continue
+                return "No data found in this region."
 
             # Filter only numeric columns for mean calculation
             numeric_df = df.select_dtypes(include=[np.number])
@@ -563,20 +570,26 @@ def compare_datasets(
 
             # Map requested variable names to actual IDs using the mapping from _access_dataset
             mapped_means = {}
+            actual_ids = {}
             for v in variables:
                 actual_v = dataset.var_mapping.get(v)
                 if actual_v and actual_v in means:
                     mapped_means[v] = means[actual_v]
+                    actual_ids[v] = actual_v
 
-            results[ds_name] = {
+            return {
                 "means": mapped_means,
+                "variable_ids": actual_ids,
                 "observation_count": len(df),
             }
         except ValueError as e:
-            # Errors are recorded per-dataset so the LLM sees partial results
-            results[ds_name] = f"Error: {e}"
+            # ValueErrors are recorded per-dataset so the LLM sees partial results
+            return f"Error: {e}"
 
-    return json.dumps(results)
+    with ThreadPoolExecutor() as pool:
+        all_results = pool.map(_load_one, datasets)
+
+    return json.dumps(dict(zip(datasets, all_results)))
 
 
 # Internal function for accessing a dataset
