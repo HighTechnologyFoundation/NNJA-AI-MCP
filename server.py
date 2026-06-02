@@ -659,6 +659,9 @@ def _access_dataset(
 
     Returns:
         DatasetResult: A named tuple containing the dataset result and metadata.
+
+    Raises:
+        ValueError: If there are issues with the input parameters (e.g., invalid dataset name, variable resolution failure, invalid bounds, or time range issues).
     """
     # Validate latitude and longitude bounds, if entered
     if (lat_bounds and len(lat_bounds) != 2) or (lon_bounds and len(lon_bounds) != 2):
@@ -720,6 +723,9 @@ def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
 
     Returns:
         NNJADataset: The most similar valid dataset.
+
+    Raises:
+        ValueError: If no valid dataset is found matching the input name.
     """
     # Search for valid dataset names using the input dataset name
     valid_datasets = _catalog.search(dataset)
@@ -907,6 +913,9 @@ def _data_category(
 
     Returns:
         np.ndarray: An array of category labels for the variable values analyzed.
+
+    Raises:
+        ValueError: If an unknown analysis type is provided.
     """
     match analysis:
         case "lapse_rate":
