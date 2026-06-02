@@ -866,45 +866,59 @@ def _data_category(
     """
     match analysis:
         case "lapse_rate":
+            DRY_ADIABATIC_LAPSE_RATE = 9.8  # K/km
+            MOIST_ADIABATIC_LAPSE_RATE = (
+                6  # K/km (approximate average, varies with temperature and pressure)
+            )
+
             # The variable passed in should be the calculated lapse rate in K/km
             lapse_rate = df[var]
+
             conditions = [
-                # Inversion (temperature increases with height, extremely stable)
-                (lapse_rate < 0),
-                # Stable (less than moist adiabatic lapse rate)
-                (lapse_rate >= 0) & (lapse_rate < 6),
-                # Conditionally Unstable (unstable if saturated, stable if unsaturated)
-                (lapse_rate >= 6) & (lapse_rate < 9.8),
-                # Unstable (greater than dry adiabatic lapse rate)
-                (lapse_rate >= 9.8),
+                (lapse_rate < 0),  # Temperature increases with height
+                (lapse_rate >= 0) & (lapse_rate < MOIST_ADIABATIC_LAPSE_RATE),
+                (lapse_rate >= MOIST_ADIABATIC_LAPSE_RATE)
+                & (lapse_rate < DRY_ADIABATIC_LAPSE_RATE),
+                (lapse_rate >= DRY_ADIABATIC_LAPSE_RATE),
             ]
+
             categories = [
                 "Extremely Stable (Inversion)",
                 "Stable",
-                "Conditionally Unstable",
+                "Conditionally Unstable",  # Unstable only if air is saturated
                 "Unstable",
             ]
 
         case "cloud_cooling":
+            FREEZING_POINT_K = 273.15  # 0 degrees C in Kelvin
+            CONVECTIVE_THRESHOLD_K = (
+                240  # BT in K below which clouds are likely convective/deep
+            )
+            BTD_ICE_CLOUD_MIN = 1.5
+            BTD_WARM_CLOUD_MAX = 1.0
+            BTD_SUPERCOOLED_MAX = -0.5
+
             # The variable passed in should be the brightness temperature at 10.8um, which closely approximates physical temperature
             bt_108 = df[var]
 
             # This should be pre-calculated as the difference between the two channels (BT_108 - BT_120)
             btd = df["index_value"]
 
-            # Define conditions for categorization of cloud phases
             conditions = [
-                # Warm Surface Conditions (bt_108 > 273.15)
-                (bt_108 > 273.15) & (btd > 1.0),
-                (bt_108 > 273.15) & (btd <= 1.0),
-                # Cold Conditions (bt_108 <= 273.15)
-                (bt_108 <= 273.15) & (btd > 1.5),
-                (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 < 240),
-                (bt_108 <= 273.15) & (btd >= -0.5) & (btd <= 1.5) & (bt_108 >= 240),
-                (bt_108 <= 273.15) & (btd < -0.5),
+                (bt_108 > FREEZING_POINT_K) & (btd > BTD_WARM_CLOUD_MAX),
+                (bt_108 > FREEZING_POINT_K) & (btd <= BTD_WARM_CLOUD_MAX),
+                (bt_108 <= FREEZING_POINT_K) & (btd > BTD_ICE_CLOUD_MIN),
+                (bt_108 <= FREEZING_POINT_K)
+                & (btd >= BTD_SUPERCOOLED_MAX)
+                & (btd <= BTD_ICE_CLOUD_MIN)
+                & (bt_108 < CONVECTIVE_THRESHOLD_K),
+                (bt_108 <= FREEZING_POINT_K)
+                & (btd >= BTD_SUPERCOOLED_MAX)
+                & (btd <= BTD_ICE_CLOUD_MIN)
+                & (bt_108 >= CONVECTIVE_THRESHOLD_K),
+                (bt_108 <= FREEZING_POINT_K) & (btd < BTD_SUPERCOOLED_MAX),
             ]
 
-            # Match each condition to its respective category label
             categories = [
                 "Clear Sky (Warm/Humid Surface)",
                 "Warm Water Clouds / Low Fog",
@@ -915,24 +929,36 @@ def _data_category(
             ]
 
         case "wildfire_risk":
+            NIGHT_HIGH_RISK_BTD_MIN = 20.0
+            NIGHT_HIGH_RISK_BT39_MIN = 310.0
+            NIGHT_MEDIUM_RISK_BTD_MIN = 10.0
+            NIGHT_LOW_RISK_BTD_MIN = 2.0
+
+            DAY_HIGH_RISK_BTD_MIN = 25.0
+            DAY_HIGH_RISK_BT39_MIN = 320.0
+            DAY_MEDIUM_RISK_BTD_MIN = 15.0
+            DAY_LOW_RISK_BTD_MIN = 6.0
+
             # The variable passed in should be the brightness temperature at 3.9um, which is more sensitive to high temperatures from fires
             bt_39 = df[var]
+
             # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
             btd = df["index_value"]
 
             if is_night:
                 conditions = [
-                    (btd >= 20.0) & (bt_39 > 310.0),
-                    (btd >= 10.0),
-                    (btd >= 2.0),
-                    (btd < 2.0),
+                    (btd >= NIGHT_HIGH_RISK_BTD_MIN)
+                    & (bt_39 > NIGHT_HIGH_RISK_BT39_MIN),
+                    (btd >= NIGHT_MEDIUM_RISK_BTD_MIN),
+                    (btd >= NIGHT_LOW_RISK_BTD_MIN),
+                    (btd < NIGHT_LOW_RISK_BTD_MIN),
                 ]
             else:
                 conditions = [
-                    (btd >= 25.0) & (bt_39 > 320.0),
-                    (btd >= 15.0),
-                    (btd >= 6.0),
-                    (btd < 6.0),
+                    (btd >= DAY_HIGH_RISK_BTD_MIN) & (bt_39 > DAY_HIGH_RISK_BT39_MIN),
+                    (btd >= DAY_MEDIUM_RISK_BTD_MIN),
+                    (btd >= DAY_LOW_RISK_BTD_MIN),
+                    (btd < DAY_LOW_RISK_BTD_MIN),
                 ]
 
             categories = [
