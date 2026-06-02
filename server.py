@@ -747,7 +747,7 @@ def _calculate_cloud_cooling_index(
     df: pd.DataFrame,
     bt_108: str,
 ) -> dict[str, Any]:
-    """Calculate a wildfire risk index for satellite data based on difference between shortwave (3.9um) and longwave (10.8um) IR.
+    """Calculate a cloud cooling index for satellite data based on difference between 10.8um and 12.0um IR.
 
     Args:
         df (pd.DataFrame): The DataFrame containing the satellite data.
