@@ -586,14 +586,14 @@ def compare_datasets(
         str: A JSON string with the compared statistics.
     """
 
-    def _load_one(ds_name: str) -> dict | str:
+    def _load_one(ds_name: str) -> dict[str, Any]:
         """Helper function to load and calculate mean for one dataset.
 
         Args:
             ds_name (str): The name of the dataset to load and analyze.
 
         Returns:
-            dict | str: A dict with the mean values and actual variable IDs for the requested variables in this dataset, or an error message if loading fails.
+            dict[str, Any]: A dict with the mean values and actual variable IDs for the requested variables in this dataset, or a dict with an error key if loading fails.
         """
         try:
             # Access data for this dataset
@@ -604,7 +604,7 @@ def compare_datasets(
             df = dataset.data
 
             if df.empty:
-                return "No data found in this region."
+                return {"error": "No data found in this region."}
 
             # Filter only numeric columns for mean calculation
             numeric_df = df.select_dtypes(include=[np.number])
@@ -628,7 +628,7 @@ def compare_datasets(
             }
         except ValueError as e:
             # ValueErrors are recorded per-dataset so the LLM sees partial results
-            return f"Error: {e}"
+            return {"error": str(e)}
 
     with ThreadPoolExecutor(max_workers=min(8, len(datasets) or 1)) as pool:
         all_results = pool.map(_load_one, datasets)
