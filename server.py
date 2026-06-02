@@ -102,7 +102,7 @@ VIRTUAL_VARIABLE_REGISTRY = {
 
 class DatasetResult(NamedTuple):
     """A named tuple to hold the dataset result along with metadata for tools that need it.
-    
+
     Attributes:
         data (pd.DataFrame): The resulting dataset as a pandas DataFrame.
         var_mapping (dict[str, str | None]): A mapping from requested variable names to actual dataset variable IDs.
@@ -160,7 +160,7 @@ def dataset_info(dataset: str) -> str:
         str: A string containing a summary of the requested dataset.
     """
     try:
-        chosen_dataset = _fuzzy_dataset_search(dataset)
+        chosen_dataset = _resolve_dataset(dataset)
         return chosen_dataset.info()
     except ValueError as e:
         return f"Error: {e}"
@@ -177,7 +177,7 @@ def variables_info(dataset: str) -> str:
         str: A string containing a list of the variables in the requested dataset and their descriptions.
     """
     try:
-        chosen_dataset = _fuzzy_dataset_search(dataset)
+        chosen_dataset = _resolve_dataset(dataset)
         vars_str = str(chosen_dataset.list_variables())
     except ValueError as e:
         return f"Error: {e}"
@@ -674,7 +674,7 @@ def _access_dataset(
         raise ValueError("end_time must be greater than or equal to time (start_time).")
 
     # Search for the most similar valid dataset available
-    chosen_dataset = _fuzzy_dataset_search(dataset)
+    chosen_dataset = _resolve_dataset(dataset)
 
     # Search for valid variable names using the input variable list
     # Always include LAT and LON for spatial subsetting if requested
@@ -714,9 +714,9 @@ def _access_dataset(
     return DatasetResult(data=df, var_mapping=var_mapping)
 
 
-# Internal function for fuzzy searching of dataset names
-def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
-    """Uses fuzzy matching to get valid dataset names.
+# Internal function for resolving a dataset from a dataset name
+def _resolve_dataset(dataset: str) -> NNJADataset:
+    """Searches the NNJA-AI dataset catalog for the most similar dataset matching the input name.
 
     Args:
         dataset (str): The name of the dataset to search for.

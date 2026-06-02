@@ -27,8 +27,8 @@ The MCP server exposes the following tools to connected LLMs:
 | `compare_datasets` | Compares the means of multiple variables from multiple datasets aligned spatially. |
 
 > [!TIP]
-> The server uses Fuzzy Matching for dataset and variable names. If you (or the AI) make a typo, 
-the server will automatically find the closest valid match!
+> The server uses fuzzy matching for variable names and searches for valid dataset names. 
+If you (or the AI) make a typo, the server will automatically find the closest valid match!
 
 ## Quick Start
 
