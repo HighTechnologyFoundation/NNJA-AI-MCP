@@ -15,7 +15,11 @@ async def main():
         res = await mcp_client.call_tool(
             "compare_datasets",
             {
-                "datasets": ["amsua-1bamua-NC021023", "atms-atms-NC021203", "mhs-1bmhs-NC021027"],
+                "datasets": [
+                    "amsua-1bamua-NC021023",
+                    "atms-atms-NC021203",
+                    "mhs-1bmhs-NC021027",
+                ],
                 "time": "2023-01-01",
                 "end_time": "2023-01-02",
                 "variables": ["brightness temperature"],
