@@ -1,6 +1,10 @@
+import asyncio
 import json
+import logging
 import os
 import re
+import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from functools import lru_cache
@@ -9,14 +13,48 @@ from typing import Any, Literal, NamedTuple
 import numpy as np
 import pandas as pd
 from fastmcp import FastMCP
+from fastmcp.server.lifespan import lifespan
 from fuzzywuzzy import process
 from nnja_ai import DataCatalog, NNJADataset
 from scipy import stats
 
-mcp = FastMCP("NNJA-AI-MCP")
+# Set up logging to communicate startup time
+logging.basicConfig(
+    level=logging.WARNING,
+    stream=sys.stderr,  # Using stderr to avoid MCP communication issues with stdout
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("nnja-ai-mcp")
+logger.setLevel(logging.INFO)
 
-# Initialize the NNJA_AI dataset catalog to avoid repeated network usage
-CATALOG = DataCatalog()
+_catalog: DataCatalog | None = None
+
+
+@lifespan
+async def catalog_lifespan(server: FastMCP):
+    """Lifespan function to initialize the NNJA_AI dataset catalog when the server starts.
+
+    Args:
+        server (FastMCP): The FastMCP server instance.
+
+    Yields:
+        dict[str, Any]: An empty context dict. Tool use the module-level _catalog variable.
+
+    Raises:
+        RuntimeError: If the catalog fails to initialize (e.g., GCS unreachable or authentication failure).
+    """
+    global _catalog
+    t = time.perf_counter()
+    try:
+        _catalog = await asyncio.to_thread(DataCatalog)
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize NNJA_AI dataset catalog: {e}") from e
+    logger.info(f"DataCatalog ready in {time.perf_counter() - t:.2f} seconds.")
+    yield {}
+
+
+mcp = FastMCP("NNJA-AI-MCP", lifespan=catalog_lifespan)
+
 
 # Virtual Variable Registry for semantic mapping across datasets
 VIRTUAL_VARIABLE_REGISTRY = {
@@ -92,7 +130,7 @@ def available_datasets() -> str:
     Returns:
         str: A string listing the available NNJA-AI datasets.
     """
-    return str(CATALOG.list_datasets())
+    return str(_catalog.list_datasets())
 
 
 @mcp.resource("data://datasets", mime_type="application/json")
@@ -102,7 +140,7 @@ def list_datasets() -> list[str]:
     Returns:
         list[str]: A list of available NNJA-AI dataset names.
     """
-    return CATALOG.list_datasets()
+    return _catalog.list_datasets()
 
 
 @mcp.tool()
@@ -678,14 +716,14 @@ def _fuzzy_dataset_search(dataset: str) -> NNJADataset:
         NNJADataset: The most similar valid dataset.
     """
     # Search for valid dataset names using the input dataset name
-    valid_datasets = CATALOG.search(dataset)
+    valid_datasets = _catalog.search(dataset)
 
     # If no valid datasets are found, raise an error
     if not valid_datasets:
         raise ValueError(f"No dataset matching '{dataset}' found.")
 
     # Get and return a valid dataset
-    return CATALOG[valid_datasets[0].name]
+    return _catalog[valid_datasets[0].name]
 
 
 # Internal function for fuzzy searching of dataset variables
