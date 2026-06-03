@@ -667,11 +667,21 @@ def _access_dataset(
     if rows is not None and rows <= 0:
         raise ValueError("rows must be a positive integer.")
 
-    # Validate latitude and longitude bounds, if entered
+    # Validate latitude and longitude bound lengths, if entered
     if (lat_bounds and len(lat_bounds) != 2) or (lon_bounds and len(lon_bounds) != 2):
         raise ValueError(
             "Latitude and longitude bounds must be lists of two floats: [min, max]."
         )
+
+    # Validate latitude bound values, if entered
+    if lat_bounds and not (-90 <= lat_bounds[0] <= 90 and -90 <= lat_bounds[1] <= 90):
+        raise ValueError("Latitude bound values must be between -90 to 90.")
+
+    # Validate longitude bound values, if entered
+    if lon_bounds and not (
+        -180 <= lon_bounds[0] <= 180 and -180 <= lon_bounds[1] <= 180
+    ):
+        raise ValueError("Longitude bound values must be between -180 to 180.")
 
     # Validate time input(s) formatting
     try:
