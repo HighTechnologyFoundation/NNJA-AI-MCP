@@ -430,11 +430,14 @@ def calculate_spectral_index(
         }
     }
 
-    if dataset not in mapping:
-        return f"Error: Dataset '{dataset}' not supported for index calculation."
+    # Resolve the entered dataset for use in guard conditions
+    resolved_dataset = _resolve_dataset(dataset).name
 
-    if index_name not in mapping[dataset]:
-        return f"Error: Index '{index_name}' not implemented for dataset '{dataset}'."
+    if resolved_dataset not in mapping:
+        return f"Error: Dataset '{dataset}' ({resolved_dataset}) not supported for index calculation."
+
+    if index_name not in mapping[resolved_dataset]:
+        return f"Error: Index '{index_name}' not implemented for dataset '{dataset}' ({resolved_dataset})."
 
     var1, var2 = mapping[dataset][index_name]
 
