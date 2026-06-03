@@ -593,15 +593,8 @@ def compare_datasets(
         str: A JSON string with the compared statistics.
     """
 
+    # Helper function to load and calculate mean & give var mapping for one dataset
     def _load_one(ds_name: str) -> dict[str, Any]:
-        """Helper function to load and calculate mean for one dataset.
-
-        Args:
-            ds_name (str): The name of the dataset to load and analyze.
-
-        Returns:
-            dict[str, Any]: A dict with the mean values and actual variable IDs for the requested variables in this dataset, or a dict with an error key if loading fails.
-        """
         try:
             # Access data for this dataset
             dataset = _access_dataset(
