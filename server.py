@@ -694,6 +694,13 @@ def _access_dataset(
 
     valid_vars = list(set(var_mapping.values()))
 
+    # Logging of dropped dupplicate variables
+    dupes = len(var_mapping) - len(valid_vars)
+    if dupes:
+        logger.warning(
+            f"{dupes} variable(s) resolved to duplicate column IDs and were deduplicated."
+        )
+
     time_sel = slice(time, end_time) if end_time else time
 
     # Filter the valid dataset down to only the subset of interest
