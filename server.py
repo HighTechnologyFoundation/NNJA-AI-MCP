@@ -97,6 +97,7 @@ VIRTUAL_VARIABLE_REGISTRY = {
     },
     "latitude": {"DEFAULT": "LAT"},
     "longitude": {"DEFAULT": "LON"},
+    "obs_date": {"DEFAULT": "OBS_DATE"},
 }
 
 
