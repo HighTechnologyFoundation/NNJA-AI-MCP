@@ -16,7 +16,7 @@ async def main():
                 "index_name": "wildfire_risk",
                 "lat_bounds": [15, 30],
                 "lon_bounds": [0, 15],
-                "end_time": "2024-08-16"
+                "end_time": "2024-08-16",
             },
         )
 
