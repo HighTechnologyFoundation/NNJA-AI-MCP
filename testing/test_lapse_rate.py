@@ -16,6 +16,7 @@ async def main():
                 "lon_bounds": [-120, -110],  # desert: -120, -110 | tropical: -85, -50
                 "level1_hpa": 925,  # 1000 | 1000 | 925 | 850
                 "level2_hpa": 850,  #  850 |  500 | 850 | 500
+                "end_time": "2023-07-17",
             },
         )
 

@@ -16,6 +16,7 @@ async def main():
                 "index_name": "cloud_cooling",
                 "lat_bounds": [35, 50],
                 "lon_bounds": [-5, 15],
+                "end_time": "2024-11-21",
             },
         )
 

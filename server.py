@@ -395,6 +395,7 @@ def calculate_spectral_index(
     rows: int = -1,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
+    end_time: str | None = None,
 ) -> str:
     """Calculate a domain-specific spectral index for satellite data.
 
@@ -409,6 +410,7 @@ def calculate_spectral_index(
         rows (int, optional): The number of rows of data to use for analysis. Defaults to -1 (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
+        end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
         str: A JSON string with the calculated index statistics.
@@ -438,7 +440,7 @@ def calculate_spectral_index(
 
     try:
         df = _access_dataset(
-            dataset, time, [var1, var2], rows, lat_bounds, lon_bounds
+            dataset, time, [var1, var2], rows, lat_bounds, lon_bounds, end_time
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -470,6 +472,7 @@ def calculate_lapse_rate(
     lon_bounds: list[float] | None = None,
     level1_hpa: int = 1000,
     level2_hpa: int = 500,
+    end_time: str | None = None,
 ) -> str:
     """Calculate the lapse rate between two pressure levels using ADPUPA (Upper-Air) data.
     Lapse rate is calculated as - (T2 - T1) / (Z2 - Z1) in K/km.
@@ -483,6 +486,7 @@ def calculate_lapse_rate(
         lon_bounds (list[float], optional): Longitude boundaries.
         level1_hpa (int): First pressure level in hPa (e.g., 1000).
         level2_hpa (int): Second pressure level in hPa (e.g., 500).
+        end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
         str: A JSON string with lapse rate statistics.
@@ -505,7 +509,7 @@ def calculate_lapse_rate(
 
     try:
         df = _access_dataset(
-            dataset, time, required_vars, rows, lat_bounds, lon_bounds
+            dataset, time, required_vars, rows, lat_bounds, lon_bounds, end_time
         ).data
     except ValueError as e:
         return f"Error: {e}"
