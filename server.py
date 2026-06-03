@@ -1053,7 +1053,7 @@ def _data_category(
 
 
 # Internal function to cache variable metadata for quicker repeated access
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=None)
 def _build_variable_index(dataset: NNJADataset) -> tuple[set[str], dict[str, str]]:
     """Build a searchable index of variable IDs and descriptions for a dataset.
 
