@@ -669,8 +669,15 @@ def _access_dataset(
             "Latitude and longitude bounds must be lists of two floats: [min, max]."
         )
 
+    # Validate time inputs
+    try:
+        parsed_time = date.fromisoformat(time)
+        parsed_end_time = date.fromisoformat(end_time) if end_time else None
+    except:
+        raise ValueError("Invalid date format. Use YYYY-MM-DD (e.g., '2021-06-15').")
+
     # Validate end_time input, if provided
-    if end_time and date.fromisoformat(end_time) < date.fromisoformat(time):
+    if parsed_end_time and parsed_end_time < parsed_time:
         raise ValueError("end_time must be greater than or equal to time (start_time).")
 
     # Search for the most similar valid dataset available
