@@ -38,10 +38,10 @@ class MCPClient:
             # Determine the command and arguments based on the operating system
             if platform.system() == "Windows":
                 command = "cmd.exe"
-                args = ["/c", f"{sys.executable} {self.server_path} 2>NUL"]
+                args = ["/c", f'"{sys.executable}" "{self.server_path}" 2>NUL']
             else:
                 command = "sh"
-                args = ["-c", f"{sys.executable} {self.server_path} 2>/dev/null"]
+                args = ["-c", f'"{sys.executable}" "{self.server_path}" 2>/dev/null']
 
             # Start the server via stdio communication
             read, write = await self.exit_stack.enter_async_context(
