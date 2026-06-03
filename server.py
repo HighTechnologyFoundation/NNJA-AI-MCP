@@ -4,10 +4,10 @@ import logging
 import os
 import re
 import sys
-import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from functools import lru_cache
+from time import perf_counter
 from typing import Any, Literal, NamedTuple
 
 import numpy as np
@@ -44,12 +44,12 @@ async def catalog_lifespan(server: FastMCP):
         RuntimeError: If the catalog fails to initialize (e.g., GCS unreachable or authentication failure).
     """
     global _catalog
-    t = time.perf_counter()
+    t = perf_counter()
     try:
         _catalog = await asyncio.to_thread(DataCatalog)
     except Exception as e:
         raise RuntimeError(f"Failed to initialize NNJA_AI dataset catalog: {e}") from e
-    logger.info(f"DataCatalog ready in {time.perf_counter() - t:.2f} seconds.")
+    logger.info(f"DataCatalog ready in {perf_counter() - t:.2f} seconds.")
     yield {}
 
 
