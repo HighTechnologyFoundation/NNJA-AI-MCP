@@ -711,7 +711,7 @@ def _access_dataset(
 
     valid_vars = list(set(var_mapping.values()))
 
-    # Logging of dropped dupplicate variables
+    # Logging of dropped duplicate variables
     dupes = len(var_mapping) - len(valid_vars)
     if dupes:
         logger.warning(
