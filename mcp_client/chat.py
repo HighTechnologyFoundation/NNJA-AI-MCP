@@ -1,3 +1,4 @@
+from handlers import GeminiQueryHandler
 from mcp.types import Resource
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
@@ -155,7 +156,7 @@ class CommandAutoSuggest(AutoSuggest):
         return None
 
 
-async def run_chat(handler) -> None:
+async def run_chat(handler: GeminiQueryHandler) -> None:
     """Run an AI-handled chat session with autocompletion."""
     print("\nMCP Client's Chat Started!")
     print("Type your queries or 'quit' to exit.")
@@ -268,7 +269,7 @@ async def run_chat(handler) -> None:
                 continue
             if query.lower() in ("quit", "q"):
                 break
-            
+
             # Local command handling
             if query.lower() == "/refresh":
                 await refresh_completions()
