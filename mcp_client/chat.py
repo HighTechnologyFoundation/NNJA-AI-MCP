@@ -30,7 +30,7 @@ class UnifiedCompleter(Completer):
     def update_resource_items(self, items: list[tuple]):
         """Update the list of available resources and their types for @ completion."""
         self.resource_items = items
-        self.meta_types = sorted(list(set(meta for _, meta in items)))
+        self.meta_types = sorted(set(meta for _, meta in items))
 
     def get_completions(self, document, complete_event):
         """Decide completion suggestions based on current cursor position."""
@@ -215,7 +215,7 @@ async def run_chat(handler: GeminiQueryHandler) -> None:
                     all_items.append((res.name, meta))
 
             # Deduplicate items while preserving metadata
-            completer.update_resource_items(sorted(list(set(all_items))))
+            completer.update_resource_items(sorted(set(all_items)))
         except Exception as e:
             print(f"Warning: Could not refresh completions: {e}")
 
