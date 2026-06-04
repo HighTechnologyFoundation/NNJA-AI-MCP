@@ -123,9 +123,7 @@ class CommandAutoSuggest(AutoSuggest):
         self.prompts = prompts
         self.prompt_dict = {prompt.name: prompt for prompt in prompts}
 
-    def get_suggestion(
-        self, buffer: Buffer, document: Document
-    ) -> Suggestion | None:
+    def get_suggestion(self, buffer: Buffer, document: Document) -> Suggestion | None:
         text = document.text
 
         if not text.startswith("/"):
