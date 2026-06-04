@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger("nnja-ai-mcp")
 logger.setLevel(logging.INFO)
 
-_catalog: DataCatalog | None = None
+_catalog: DataCatalog  # set during lifespan
 
 
 @lifespan
