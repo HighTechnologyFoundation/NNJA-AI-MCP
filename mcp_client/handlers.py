@@ -1,10 +1,12 @@
+import json
 import os
-from typing import List, Tuple, Any
-from dotenv import load_dotenv
+from typing import Any, List, Tuple
 
-from mcp import ClientSession
 import mcp.types as types
+from dotenv import load_dotenv
 from google import genai
+from mcp import ClientSession
+from pydantic import AnyUrl
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,9 +52,6 @@ class GeminiQueryHandler:
 
     async def read_resource(self, uri: str) -> Any:
         """Read a resource from the MCP server and returns parsed JSON if applicable."""
-        from pydantic import AnyUrl
-        import json
-
         result = await self.client_session.read_resource(AnyUrl(uri))
         resource = result.contents[0]
         if isinstance(resource, types.TextResourceContents):
@@ -155,5 +154,5 @@ class GeminiQueryHandler:
 
         if not response.text:
             return "Assistant: (no response)"
-        
+
         return "Assistant: " + response.text
