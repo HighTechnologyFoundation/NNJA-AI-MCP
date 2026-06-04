@@ -279,6 +279,7 @@ async def run_chat(handler) -> None:
             response = await handler.process_query(query)
             print("\n" + response)
         except KeyboardInterrupt:
+            print("\nType 'quit' to exit.")
             continue
         except EOFError:
             break
