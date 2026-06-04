@@ -1,11 +1,11 @@
 from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
+from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
+from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
-from prompt_toolkit.history import InMemoryHistory
-from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
-from prompt_toolkit.document import Document
-from prompt_toolkit.buffer import Buffer
 
 
 class UnifiedCompleter(Completer):
