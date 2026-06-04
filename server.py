@@ -231,7 +231,9 @@ def load_data_sample(
     if df.empty:
         return "Error: No data found for the given criteria."
 
-    return df.to_json(orient="records")
+    result = df.to_json(orient="records")
+    assert result is not None
+    return result
 
 
 @mcp.tool()
@@ -268,7 +270,9 @@ def descriptive_stats_dataset(
     if df.empty:
         return "Error: No data found for the given criteria."
 
-    return df.describe().to_json()
+    result = df.describe().to_json()
+    assert result is not None
+    return result
 
 
 @mcp.tool()
@@ -311,7 +315,9 @@ def correlation_matrix_dataset(
     if numeric_df.empty:
         return "Error: No numeric columns available for correlation."
 
-    return numeric_df.corr(method=corr_method).to_json()
+    result = numeric_df.corr(method=corr_method).to_json()
+    assert result is not None
+    return result
 
 
 @mcp.tool()
