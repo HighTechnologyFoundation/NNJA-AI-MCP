@@ -1,7 +1,7 @@
+import asyncio
 import time
 
 from fastmcp import Client
-import asyncio
 
 mcp_client = Client("http://localhost:8000/mcp")
 

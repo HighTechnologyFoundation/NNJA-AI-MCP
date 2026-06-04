@@ -1,8 +1,9 @@
-from fastmcp import Client
-from google import genai
 import asyncio
 import os
+
 from dotenv import load_dotenv
+from fastmcp import Client
+from google import genai
 
 # Load environment variables from .env file
 load_dotenv()

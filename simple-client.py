@@ -1,8 +1,9 @@
-from fastmcp import Client
 import asyncio
-import pandas as pd
-import matplotlib.pyplot as plt
 from io import StringIO
+
+import matplotlib.pyplot as plt
+import pandas as pd
+from fastmcp import Client
 
 mcp_client = Client("http://localhost:8000/mcp")
 
