@@ -1,7 +1,7 @@
 import sys
 import platform
 from contextlib import AsyncExitStack
-from typing import Any, Awaitable, Callable, ClassVar, Self
+from typing import Any, Awaitable, Callable, Self
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -13,19 +13,17 @@ from mcp_client.handlers import GeminiQueryHandler
 class MCPClient:
     """Terminal-based MCP client to interact with an MCP server."""
 
-    client_session: ClassVar[ClientSession]
-
     # Initializes the server executable path and an exit stack
     def __init__(self, server_path: str):
         self.server_path = server_path
+        self.client_session: ClientSession
 
         # Simplifies managing multiple async context managers
         self.exit_stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
         """Establishes the server connection when entering `async with`."""
-        cls = type(self)
-        cls.client_session = await self._connect_to_server()
+        self.client_session = await self._connect_to_server()
         return self
 
     async def __aexit__(self, *_) -> None:
