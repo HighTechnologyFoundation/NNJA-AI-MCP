@@ -1,4 +1,4 @@
-from handlers import GeminiQueryHandler
+from mcp_client.handlers import GeminiQueryHandler
 from mcp.types import Resource
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
