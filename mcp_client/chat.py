@@ -17,6 +17,9 @@ class UnifiedCompleter(Completer):
         self.prompt_dict = {}
         self.resource_items = []  # Store (item, meta) tuples
         self.meta_types = []
+        self.local_commands = [
+            {"name": "refresh", "description": "Refresh auto-completion suggestions"},
+        ]
 
     def update_prompts(self, prompts: list):
         """Update the list of available MCP prompts for / completion."""
@@ -102,6 +105,15 @@ class UnifiedCompleter(Completer):
                             start_position=-len(cmd_prefix),
                             display=f"/{prompt.name}",
                             display_meta=prompt.description or "",
+                        )
+
+                for cmd in self.local_commands:
+                    if cmd["name"].startswith(cmd_prefix):
+                        yield Completion(
+                            cmd["name"],
+                            start_position=-len(cmd_prefix),
+                            display=f"/{cmd['name']}",
+                            display_meta=cmd["description"],
                         )
                 return
 
@@ -256,13 +268,16 @@ async def run_chat(handler) -> None:
                 continue
             if query.lower() in ("quit", "q"):
                 break
+            
+            # Local command handling
+            if query.lower() == "/refresh":
+                await refresh_completions()
+                print("Completions refreshed!")
+                continue
 
             # Process the query through the handler and MCP
             response = await handler.process_query(query)
             print("\n" + response)
-
-            # Refresh completions in case server state changed
-            await refresh_completions()
         except KeyboardInterrupt:
             continue
         except EOFError:
