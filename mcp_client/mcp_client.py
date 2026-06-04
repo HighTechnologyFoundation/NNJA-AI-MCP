@@ -35,20 +35,12 @@ class MCPClient:
     async def _connect_to_server(self) -> ClientSession:
         """Spawns the MCP server as a subprocess and initializes the MCP ClientSession."""
         try:
-            # Determine the command and arguments based on the operating system
-            if platform.system() == "Windows":
-                command = "cmd.exe"
-                args = ["/c", f'"{sys.executable}" "{self.server_path}" 2>NUL']
-            else:
-                command = "sh"
-                args = ["-c", f'"{sys.executable}" "{self.server_path}" 2>/dev/null']
-
             # Start the server via stdio communication
             read, write = await self.exit_stack.enter_async_context(
                 stdio_client(
                     server=StdioServerParameters(
-                        command=command,
-                        args=args,
+                        command=sys.executable,
+                        args=[self.server_path],
                         env=None,
                     )
                 )
