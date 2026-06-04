@@ -152,5 +152,8 @@ class GeminiQueryHandler:
             """
 
         response = await self.chat.send_message(query)
+
+        if not response.text:
+            return "Assistant: (no response)"
         
         return "Assistant: " + response.text
