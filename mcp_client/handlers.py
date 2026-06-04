@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, List, Tuple
+from typing import Any
 
 import mcp.types as types
 from dotenv import load_dotenv
@@ -33,19 +33,19 @@ class GeminiQueryHandler:
             ),
         )
 
-    async def list_prompts(self) -> List[types.Prompt]:
+    async def list_prompts(self) -> list[types.Prompt]:
         """List available prompts from the MCP server."""
         result = await self.client_session.list_prompts()
         return result.prompts
 
-    async def list_resources(self) -> List[types.Resource]:
+    async def list_resources(self) -> list[types.Resource]:
         """List available resources from the MCP server."""
         result = await self.client_session.list_resources()
         return result.resources
 
     async def get_prompt(
         self, name: str, arguments: dict | None = None
-    ) -> List[types.PromptMessage]:
+    ) -> list[types.PromptMessage]:
         """Retrieve a specific prompt by name, optionally with arguments."""
         result = await self.client_session.get_prompt(name, arguments)
         return result.messages
@@ -70,7 +70,7 @@ class GeminiQueryHandler:
             return ""
 
         resources = await self.list_resources()
-        mentioned_docs: List[Tuple[str, str]] = []
+        mentioned_docs: list[tuple[str, str]] = []
 
         for resource in resources:
             # Match against resource names or URIs

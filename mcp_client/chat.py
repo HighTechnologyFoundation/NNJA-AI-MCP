@@ -1,4 +1,3 @@
-from typing import List, Optional
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.key_binding import KeyBindings
@@ -18,12 +17,12 @@ class UnifiedCompleter(Completer):
         self.resource_items = []  # Store (item, meta) tuples
         self.meta_types = []
 
-    def update_prompts(self, prompts: List):
+    def update_prompts(self, prompts: list):
         """Update the list of available MCP prompts for / completion."""
         self.prompts = prompts
         self.prompt_dict = {prompt.name: prompt for prompt in prompts}
 
-    def update_resource_items(self, items: List[tuple]):
+    def update_resource_items(self, items: list[tuple]):
         """Update the list of available resources and their types for @ completion."""
         self.resource_items = items
         self.meta_types = sorted(list(set(meta for _, meta in items)))
@@ -120,13 +119,13 @@ class UnifiedCompleter(Completer):
 class CommandAutoSuggest(AutoSuggest):
     """Provides ghost text suggestions for prompt arguments."""
 
-    def __init__(self, prompts: List):
+    def __init__(self, prompts: list):
         self.prompts = prompts
         self.prompt_dict = {prompt.name: prompt for prompt in prompts}
 
     def get_suggestion(
         self, buffer: Buffer, document: Document
-    ) -> Optional[Suggestion]:
+    ) -> Suggestion | None:
         text = document.text
 
         if not text.startswith("/"):
