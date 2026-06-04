@@ -15,7 +15,8 @@ async def main():
         # List the tools available from the MCP server
         tools = await mcp_client.list_tools()
         print("Available tools:")
-        [print(f"- {tool.name}: {tool.description}\n") for tool in tools]
+        for tool in tools:
+            print(f"- {tool.name}: {tool.description}\n")
 
         # List the datasets available from the MCP server
         datasets = await mcp_client.call_tool("available_datasets")
