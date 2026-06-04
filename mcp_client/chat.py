@@ -1,3 +1,4 @@
+from mcp.types import Resource
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
 from prompt_toolkit.buffer import Buffer
@@ -164,15 +165,14 @@ async def run_chat(handler) -> None:
             resources = await handler.list_resources()
             all_items = []
 
-            def get_meta_for_resource(res_name: str) -> str:
+            def get_meta_for_resource(res: Resource) -> str:
                 """Categorize resources by their meta type for UI display."""
-                name_lower = res_name.lower()
-                if "dataset" in name_lower:
+                if str(res.uri).startswith("data://datasets"):
                     return "Dataset"
                 return "Resource"
 
             for res in resources:
-                meta = get_meta_for_resource(res.name)
+                meta = get_meta_for_resource(res)
                 is_list_provider = (
                     "list" in res.name.lower() or "datasets" in res.name.lower()
                 )
