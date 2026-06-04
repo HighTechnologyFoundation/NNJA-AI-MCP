@@ -1,5 +1,4 @@
 import sys
-import platform
 from contextlib import AsyncExitStack
 from typing import Any, Awaitable, Callable, Self
 
