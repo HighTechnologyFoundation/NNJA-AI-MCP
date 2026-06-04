@@ -151,9 +151,6 @@ class GeminiQueryHandler:
             User Query: {query}
             """
 
-        # Send final combined prompt to Gemini and return the response
         response = await self.chat.send_message(query)
-        text_parts = [
-            part.text for part in response.candidates[0].content.parts if part.text
-        ]
-        return "Assistant: " + "".join(text_parts)
+        
+        return "Assistant: " + response.text
