@@ -27,11 +27,11 @@ async def main():
             {
                 "dataset": "amsu",  # Doesn't need to be an exact dataset name
                 "time": "2021-01-01",
-                "vars": [  # Variable names don't need to be exact
+                "variables": [  # Variable names don't need to be exact
                     "Latitude",
                     "LON",
                     "brightness temp",
-                ],  # No `rows` argument so the sample will be the full data
+                ],
             },
         )
 
@@ -45,7 +45,7 @@ async def main():
             {
                 "dataset": "amsu",  # Doesn't need to be an exact dataset name
                 "time": "2021-01-01",
-                "vars": [  # Variable names don't need to be exact
+                "variables": [  # Variable names don't need to be exact
                     "Latitude",
                     "LON",
                     "brightness temp",
@@ -74,7 +74,7 @@ async def main():
             {
                 "dataset": "amsu",  # Doesn't need to be an exact dataset name
                 "time": "2021-01-01",
-                "vars": [  # Variable names don't need to be exact
+                "variables": [  # Variable names don't need to be exact
                     "Latitude",
                     "LON",
                     "brightness temp",
