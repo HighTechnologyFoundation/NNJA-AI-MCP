@@ -111,10 +111,13 @@ class GeminiQueryHandler:
 
         words = query.split()
         command_name = words[0][1:]
+        arg_words = words[1:]
         args = {}
-        if len(words) > 1:
-            # Simple heuristic mapping the second word to a `doc_id` argument
-            args = {"doc_id": words[1]}
+
+        prompts = await self.list_prompts()
+        prompt = next((p for p in prompts if p.name == command_name), None)
+        if prompt and prompt.arguments:
+            args = {arg.name: word for arg, word in zip(prompt.arguments, arg_words)}
 
         try:
             messages = await self.get_prompt(command_name, args)
