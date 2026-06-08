@@ -1,7 +1,6 @@
 import asyncio
 import itertools
 
-from mcp_client.handlers import GeminiQueryHandler
 from mcp.types import Resource
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
@@ -11,6 +10,8 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
+
+from mcp_client.handlers import GeminiQueryHandler
 
 
 class UnifiedCompleter(Completer):
@@ -172,36 +173,72 @@ async def _show_thinking(message: str = "Assistant is thinking") -> None:
         raise
 
 
-async def run_chat(handler: GeminiQueryHandler) -> None:
-    """Run an AI-handled chat session with autocompletion."""
-    print("\nMCP Client's Chat Started!")
-    print("Type your queries or 'quit' to exit.")
-    print("Use @ to mention resources/items and / to use prompts.")
+class ChatSession:
+    def __init__(self, handler: GeminiQueryHandler) -> None:
+        self.handler = handler
+        self.completer = UnifiedCompleter()
+        self.autosuggester = CommandAutoSuggest([])
+        self.local_commands = {
+            "refresh": {
+                "description": "Refresh auto-completion suggestions",
+                "handler": self._handle_refresh,
+            },
+        }
+        self.completer.set_local_commands(self.local_commands)
+        self.session = self._build_session()
 
-    completer = UnifiedCompleter()
-    autosuggester = CommandAutoSuggest([])
+    async def run(self) -> None:
+        print("\nMCP Client's Chat Started!")
+        print("Type your queries or 'quit' to exit.")
+        print("Use @ to mention resources/items and / to use prompts.")
 
-    async def refresh_completions():
+        # Initial load of completions
+        await self.refresh_completions()
+
+        # Main interaction loop
+        while True:
+            try:
+                query = await self.session.prompt_async("\nYou: ")
+                query = query.strip()
+
+                if not query:
+                    continue
+                if query.lower() in ("quit", "q"):
+                    break
+                if await self._dispatch_local(query):
+                    continue
+                await self._respond(query)
+
+            except KeyboardInterrupt:
+                print("\nType 'quit' to exit.")
+                continue
+            except EOFError:
+                break
+            except Exception as e:
+                print(f"\nError: {str(e)}")
+
+        print("\nGoodbye!")
+
+    async def refresh_completions(self) -> None:
         """Fetch updated prompts and resources from the MCP server to refresh autocompletion."""
         try:
             # Update prompts
-            prompts = await handler.list_prompts()
-            completer.update_prompts(prompts)
-            autosuggester.prompts = prompts
-            autosuggester.prompt_dict = {p.name: p for p in prompts}
+            prompts = await self.handler.list_prompts()
+            self.completer.update_prompts(prompts)
+            self.autosuggester.prompts = prompts
+            self.autosuggester.prompt_dict = {p.name: p for p in prompts}
 
             # Update resources and nested items from list providers
-            resources = await handler.list_resources()
+            resources = await self.handler.list_resources()
             all_items = []
 
             def get_meta_for_resource(res: Resource) -> str:
-                """Categorize resources by their meta type for UI display."""
                 if str(res.uri).startswith("data://datasets"):
                     return "Dataset"
                 return "Resource"
 
             for res in resources:
-                meta = get_meta_for_resource(res)
+                meta = self.get_meta_for_resource(res)
                 is_list_provider = (
                     "list" in res.name.lower() or "datasets" in res.name.lower()
                 )
@@ -209,7 +246,7 @@ async def run_chat(handler: GeminiQueryHandler) -> None:
                 # If it's a list provider, fetch the items inside it
                 if is_list_provider:
                     try:
-                        content = await handler.read_resource(str(res.uri))
+                        content = await self.handler.read_resource(str(res.uri))
                         item_meta = meta.rstrip("s") if meta.endswith("s") else meta
                         if item_meta == "Resource":
                             item_meta = "Item"
@@ -231,100 +268,86 @@ async def run_chat(handler: GeminiQueryHandler) -> None:
                     all_items.append((res.name, meta))
 
             # Deduplicate items while preserving metadata
-            completer.update_resource_items(sorted(set(all_items)))
+            self.completer.update_resource_items(sorted(set(all_items)))
         except Exception as e:
             print(f"Warning: Could not refresh completions: {e}")
 
-    # Initial load of completions
-    await refresh_completions()
+    async def _dispatch_local(self, query: str) -> bool:
+        """Run a client-side command if `query` names one. Returns True is handled."""
+        if not query.startswith("/"):
+            return False
 
-    # Register client-side commands (name -> description + handler)
-    async def handle_refresh() -> None:
-        await refresh_completions()
+        command = query[1:].split()[0].lower()
+        spec = self.local_commands.get(command)
+        if spec is None:
+            return False
+        await spec["handler"]()
+        return True
+
+    async def _respond(self, query: str) -> None:
+        spinner = asyncio.create_task(_show_thinking())
+        try:
+            # Process the query through the handler and MCP
+            response = await self.handler.process_query(query)
+        finally:
+            spinner.cancel()
+            try:
+                # Let the cancellation propogate and clean up
+                await spinner
+            except asyncio.CancelledError:
+                pass
+
+        print("\n" + response)
+
+    async def _handle_refresh(self) -> None:
+        await self.refresh_completions()
         print("Completions refreshed!")
 
-    local_commands = {
-        "refresh": {
-            "description": "Refresh auto-completion suggestions",
-            "handler": handle_refresh,
-        },
-    }
-    completer.set_local_commands(local_commands)
+    def _build_session(self) -> PromptSession:
+        return PromptSession(
+            completer=self.completer,
+            history=InMemoryHistory(),
+            key_bindings=self._build_key_bindings(),
+            style=Style.from_dict(
+                {
+                    "prompt": "#aaaaaa",
+                    "completion-menu.completion": "bg:#222222 #ffffff",
+                    "completion-menu.completion.current": "bg:#444444 #ffffff",
+                }
+            ),
+            complete_while_typing=True,
+            auto_suggest=self.autosuggester,
+        )
 
-    # Configure key bindings for triggering completions manually
-    kb = KeyBindings()
+    @staticmethod
+    def _build_key_bindings() -> KeyBindings:
+        kb = KeyBindings()
 
-    @kb.add("/")
-    def _(event):
-        """Open completion menu when / is typed at the start of a line."""
-        buffer = event.app.current_buffer
-        if buffer.document.is_cursor_at_the_end and not buffer.text:
+        @kb.add("/")
+        def _(event):
+            """Open completion menu when / is typed at the start of a line."""
+            buffer = event.app.current_buffer
             buffer.insert_text("/")
-            buffer.start_completion(select_first=False)
-        else:
-            buffer.insert_text("/")
+            if buffer.document.is_cursor_at_the_end and buffer.text == "/":
+                buffer.start_completion(select_first=False)
+            # else:
+            #     buffer.insert_text("/")
 
-    @kb.add("@")
-    def _(event):
-        """Open completion menu immediately when @ is typed."""
-        buffer = event.app.current_buffer
-        buffer.insert_text("@")
-        if buffer.document.is_cursor_at_the_end:
-            buffer.start_completion(select_first=False)
+        @kb.add("@")
+        def _(event):
+            """Open completion menu immediately when @ is typed."""
+            buffer = event.app.current_buffer
+            buffer.insert_text("@")
+            if buffer.document.is_cursor_at_the_end:
+                buffer.start_completion(select_first=False)
 
-    # Initialize the interactive prompt session
-    session = PromptSession(
-        completer=completer,
-        history=InMemoryHistory(),
-        key_bindings=kb,
-        style=Style.from_dict(
-            {
-                "prompt": "#aaaaaa",
-                "completion-menu.completion": "bg:#222222 #ffffff",
-                "completion-menu.completion.current": "bg:#444444 #ffffff",
-            }
-        ),
-        complete_while_typing=True,
-        auto_suggest=autosuggester,
-    )
+    @staticmethod
+    def get_meta_for_resource(res: Resource) -> str:
+        """Categorize resources by their meta type for UI display."""
+        if str(res.uri).startswith("data://datasets"):
+            return "Dataset"
+        return "Resource"
 
-    # Main interaction loop
-    while True:
-        try:
-            query = await session.prompt_async("\nYou: ")
-            query = query.strip()
 
-            if not query:
-                continue
-            if query.lower() in ("quit", "q"):
-                break
-
-            # Local command handling
-            if query.startswith("/"):
-                command = query[1:].split()[0].lower()
-                if command in local_commands:
-                    await local_commands[command]["handler"]()
-                    continue
-
-            spinner = asyncio.create_task(_show_thinking())
-            try:
-                # Process the query through the handler and MCP
-                response = await handler.process_query(query)
-            finally:
-                spinner.cancel()
-                try:
-                    # Let the cancellation propogate and clean up
-                    await spinner
-                except asyncio.CancelledError:
-                    pass
-
-            print("\n" + response)
-        except KeyboardInterrupt:
-            print("\nType 'quit' to exit.")
-            continue
-        except EOFError:
-            break
-        except Exception as e:
-            print(f"\nError: {str(e)}")
-
-    print("\nGoodbye!")
+async def run_chat(handler: GeminiQueryHandler) -> None:
+    await ChatSession(handler).run()
