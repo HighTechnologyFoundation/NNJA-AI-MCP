@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shlex
 from typing import Any
@@ -8,6 +9,8 @@ from dotenv import load_dotenv
 from google import genai
 from mcp import ClientSession
 from pydantic import AnyUrl
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -80,7 +83,7 @@ class GeminiQueryHandler:
                     content = await self.read_resource(str(resource.uri))
                     mentioned_docs.append((resource.name, str(content)))
                 except Exception as e:
-                    print(f"Error reading resource {resource.name}: {e}")
+                    logger.warning("Error reading resource %s: %s", resource.name, e)
 
             # Special handling for list providers
             if "list" in resource.name.lower() or "datasets" in resource.name.lower():
@@ -96,7 +99,8 @@ class GeminiQueryHandler:
                                 mentioned_docs.append(
                                     (str(item), f"Selected item from {resource.name}")
                                 )
-                except Exception:
+                except Exception as e:
+                    logger.debug("Skipping list provider %s: %s", resource.name, e)
                     pass
 
         # Return the collected resources wrapped in XML tags for the LLM
