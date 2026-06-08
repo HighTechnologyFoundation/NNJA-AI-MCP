@@ -724,7 +724,8 @@ def _access_dataset(
     dupes = len(var_mapping) - len(valid_vars)
     if dupes:
         logger.warning(
-            "%d variable(s) resolved to duplicate column IDs and were deduplicated.", dupes
+            "%d variable(s) resolved to duplicate column IDs and were deduplicated.",
+            dupes,
         )
 
     time_sel = slice(time, end_time) if end_time else time
