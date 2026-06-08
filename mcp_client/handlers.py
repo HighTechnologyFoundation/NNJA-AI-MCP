@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 # Load environment variables from .env file
 load_dotenv()
 
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+
 
 class GeminiQueryHandler:
     """Handle Gemini API interaction and MCP tool execution."""
@@ -39,7 +41,7 @@ class GeminiQueryHandler:
 
         # Create an asynchronous chat session with MCP tools enabled for the model
         self.chat = self.gemini.aio.chats.create(
-            model="gemini-3.1-flash-lite",
+            model=os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
             config=genai.types.GenerateContentConfig(
                 tools=[self.client_session],  # Expose MCP tools to the LLM
             ),
