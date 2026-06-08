@@ -194,6 +194,7 @@ class ChatSession:
 
     async def run(self) -> None:
         print("\nMCP Client's Chat Started!")
+        print(f"Model: {self.handler.model}")
         print("Type your queries or 'quit' to exit.")
         print("Use @ to mention resources/items and / to use prompts.")
 

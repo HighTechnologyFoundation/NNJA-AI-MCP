@@ -6,6 +6,7 @@ from typing import Any
 
 import mcp.types as types
 from dotenv import load_dotenv
+from fuzzywuzzy import process
 from google import genai
 from mcp import ClientSession
 from pydantic import AnyUrl
@@ -21,7 +22,7 @@ DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
 class GeminiQueryHandler:
     """Handle Gemini API interaction and MCP tool execution."""
 
-    def __init__(self, client_session: ClientSession):
+    def __init__(self, client_session: ClientSession, model: str | None = None):
         self.client_session = client_session
         if not (api_key := os.getenv("GEMINI_API_KEY")):
             raise RuntimeError(
@@ -39,9 +40,12 @@ class GeminiQueryHandler:
         # Initialize the Gemini client
         self.gemini = genai.Client(api_key=api_key)
 
+        # Use the model provided by CLI or env var or the default
+        self.model = model or os.getenv("GEMINI_MODEL") or DEFAULT_GEMINI_MODEL
+
         # Create an asynchronous chat session with MCP tools enabled for the model
         self.chat = self.gemini.aio.chats.create(
-            model=os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
+            model=self.model,
             config=genai.types.GenerateContentConfig(
                 tools=[self.client_session],  # Expose MCP tools to the LLM
             ),
@@ -49,6 +53,27 @@ class GeminiQueryHandler:
 
         self._prompts_cache: list[types.Prompt] | None = None
         self._resources_cache: list[types.Resource] | None = None
+
+    async def verify_model(self) -> None:
+        """Fail fast if the configured model can't server generateContent."""
+        try:
+            available = [
+                m.name.removeprefix("models/")
+                async for m in await self.gemini.aio.models.list()
+                if "generateContent" in (m.supported_actions or [])
+            ]
+        except Exception as e:
+            logger.warning("Could not verify model %s: %s", self.model, e)
+            return
+
+        if self.model.removeprefix("models/") not in available:
+            suggestions = process.extract(self.model, available, limit=10)
+            preview = "\n".join(f"  - {name}" for name, _score in suggestions)
+            raise RuntimeError(
+                f"Model '{self.model}' isn't available for generateContent.\n"
+                f"Set a valid one via --model or GEMINI_MODEL. Available models include:\n"
+                f"{preview}"
+            )
 
     async def list_prompts(self) -> list[types.Prompt]:
         """List available prompts from the MCP server (cached)."""

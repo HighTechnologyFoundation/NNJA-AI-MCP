@@ -88,10 +88,11 @@ class MCPClient:
         except Exception as e:
             print(f"\n{section.upper()}: Error - {e}")
 
-    async def run_chat(self) -> None:
+    async def run_chat(self, model: str | None = None) -> None:
         """Initializes the query handler and launches the interactive chat UI."""
         try:
-            handler = GeminiQueryHandler(self.client_session)
+            handler = GeminiQueryHandler(self.client_session, model=model)
+            await handler.verify_model()
             await chat.run_chat(handler)
         except RuntimeError as e:
             print(e)

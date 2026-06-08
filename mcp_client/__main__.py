@@ -21,7 +21,7 @@ async def main():
             if args.members:
                 await client.list_all_members()
             elif args.chat:
-                await client.run_chat()
+                await client.run_chat(model=args.model)
     except RuntimeError as e:
         print(e)
 

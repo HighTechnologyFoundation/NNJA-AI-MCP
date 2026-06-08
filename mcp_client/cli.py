@@ -27,4 +27,14 @@ def parse_args():
         action="store_true",
         help="start an AI-powered chat with MCP server integration",
     )
+
+    # Optional flag for overriding the Gemini model
+    parser.add_argument(
+        "--model",
+        default=None,
+        help=(
+            "Gemini model for --chat "
+            "(overrides the GEMINI_MODEL env var; default: gemini-3.1-flash-lite)"
+        ),
+    )
     return parser.parse_args()
