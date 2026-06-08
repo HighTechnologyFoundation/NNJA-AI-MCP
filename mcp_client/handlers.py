@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 from typing import Any
 
 import mcp.types as types
@@ -109,7 +110,11 @@ class GeminiQueryHandler:
         if not query.startswith("/"):
             return None
 
-        words = query.split()
+        try:
+            words = shlex.split()
+        except ValueError as e:
+            raise ValueError(f"Could not parse command - chaeck your quotes: {e}") from e
+        
         command_name = words[0][1:]
         arg_words = words[1:]
         args = {}
