@@ -1,5 +1,7 @@
 import asyncio
 import itertools
+from collections.abc import Awaitable, Callable
+from typing import TypedDict
 
 from mcp.types import Resource
 from prompt_toolkit import PromptSession
@@ -14,6 +16,11 @@ from prompt_toolkit.styles import Style
 from mcp_client.handlers import GeminiQueryHandler
 
 
+class LocalCommand(TypedDict):
+    description: str
+    handler: Callable[[], Awaitable[None]]
+
+
 class UnifiedCompleter(Completer):
     """Custom prompt_toolkit completer that handles both prompts (/) and resource mentions (@)."""
 
@@ -24,7 +31,7 @@ class UnifiedCompleter(Completer):
         self.meta_types = []
         self.local_commands = {}  # name -> {"description": str, "handler": Callable}
 
-    def set_local_commands(self, commands: dict) -> None:
+    def set_local_commands(self, commands: dict[str, LocalCommand]) -> None:
         self.local_commands = commands
 
     def update_prompts(self, prompts: list):
@@ -178,7 +185,7 @@ class ChatSession:
         self.handler = handler
         self.completer = UnifiedCompleter()
         self.autosuggester = CommandAutoSuggest([])
-        self.local_commands = {
+        self.local_commands: dict[str, LocalCommand] = {
             "refresh": {
                 "description": "Refresh auto-completion suggestions",
                 "handler": self._handle_refresh,
@@ -231,11 +238,6 @@ class ChatSession:
             # Update resources and nested items from list providers
             resources = await self.handler.list_resources()
             all_items = []
-
-            def get_meta_for_resource(res: Resource) -> str:
-                if str(res.uri).startswith("data://datasets"):
-                    return "Dataset"
-                return "Resource"
 
             for res in resources:
                 meta = self.get_meta_for_resource(res)
@@ -338,6 +340,8 @@ class ChatSession:
             buffer.insert_text("@")
             if buffer.document.is_cursor_at_the_end:
                 buffer.start_completion(select_first=False)
+
+        return kb
 
     @staticmethod
     def get_meta_for_resource(res: Resource) -> str:
