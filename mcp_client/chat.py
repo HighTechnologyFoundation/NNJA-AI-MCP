@@ -21,9 +21,10 @@ class UnifiedCompleter(Completer):
         self.prompt_dict = {}
         self.resource_items = []  # Store (item, meta) tuples
         self.meta_types = []
-        self.local_commands = [
-            {"name": "refresh", "description": "Refresh auto-completion suggestions"},
-        ]
+        self.local_commands = {}  # name -> {"description": str, "handler": Callable}
+
+    def set_local_commands(self, commands: dict) -> None:
+        self.local_commands = commands
 
     def update_prompts(self, prompts: list):
         """Update the list of available MCP prompts for / completion."""
@@ -111,13 +112,13 @@ class UnifiedCompleter(Completer):
                             display_meta=prompt.description or "",
                         )
 
-                for cmd in self.local_commands:
-                    if cmd["name"].startswith(cmd_prefix):
+                for name, spec in self.local_commands.items():
+                    if name.startswith(cmd_prefix):
                         yield Completion(
-                            cmd["name"],
+                            name,
                             start_position=-len(cmd_prefix),
-                            display=f"/{cmd['name']}",
-                            display_meta=cmd["description"],
+                            display=f"/{name}",
+                            display_meta=spec["description"],
                         )
                 return
 
@@ -237,6 +238,19 @@ async def run_chat(handler: GeminiQueryHandler) -> None:
     # Initial load of completions
     await refresh_completions()
 
+    # Register client-side commands (name -> description + handler)
+    async def handle_refresh() -> None:
+        await refresh_completions()
+        print("Completions refreshed!")
+
+    local_commands = {
+        "refresh": {
+            "description": "Refresh auto-completion suggestions",
+            "handler": handle_refresh,
+        },
+    }
+    completer.set_local_commands(local_commands)
+
     # Configure key bindings for triggering completions manually
     kb = KeyBindings()
 
@@ -286,10 +300,11 @@ async def run_chat(handler: GeminiQueryHandler) -> None:
                 break
 
             # Local command handling
-            if query.lower() == "/refresh":
-                await refresh_completions()
-                print("Completions refreshed!")
-                continue
+            if query.startswith("/"):
+                command = query[1:].split()[0].lower()
+                if command in local_commands:
+                    await local_commands[command]["handler"]()
+                    continue
 
             spinner = asyncio.create_task(_show_thinking())
             try:
