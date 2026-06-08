@@ -61,6 +61,7 @@ class GeminiQueryHandler:
                 m.name.removeprefix("models/")
                 async for m in await self.gemini.aio.models.list()
                 if "generateContent" in (m.supported_actions or [])
+                    and m.name is not None
             ]
         except Exception as e:
             logger.warning("Could not verify model %s: %s", self.model, e)
