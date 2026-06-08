@@ -98,7 +98,7 @@ class GeminiQueryHandler:
                 except Exception:
                     pass
 
-        # Return the collected resources wrapped in XML tages for the LLM
+        # Return the collected resources wrapped in XML tags for the LLM
         return "".join(
             f'\n<document name="{name}">\n{content}\n</document>\n'
             for name, content in mentioned_docs
