@@ -111,18 +111,36 @@ class GeminiQueryHandler:
             return None
 
         try:
-            words = shlex.split()
+            words = shlex.split(query)
         except ValueError as e:
-            raise ValueError(f"Could not parse command - chaeck your quotes: {e}") from e
-        
+            raise ValueError(f"Could not parse command - check your quotes: {e}") from e
+
         command_name = words[0][1:]
         arg_words = words[1:]
-        args = {}
 
         prompts = await self.list_prompts()
         prompt = next((p for p in prompts if p.name == command_name), None)
-        if prompt and prompt.arguments:
-            args = {arg.name: word for arg, word in zip(prompt.arguments, arg_words)}
+        if prompt is None:
+            raise ValueError(f"Unknown command: /{command_name}")
+
+        arg_specs = prompt.arguments or []
+        if len(arg_words) > len(arg_specs):
+            raise ValueError(
+                f"/{command_name} takes at most {len(arg_specs)} argument(s), "
+                f"got {len(arg_words)}"
+            )
+
+        missing = [
+            spec.name
+            for spec, _ in zip(arg_specs[len(arg_words) :], range(len(arg_specs)))
+            if spec.required
+        ]
+        if missing:
+            raise ValueError(
+                f"/{command_name} missing required argument(s): {', '.join(missing)}"
+            )
+
+        args = {spec.name: word for spec, word in zip(arg_specs, arg_words)}
 
         messages = await self.get_prompt(command_name, args)
         # Combine MCP prompt messages into a single string for Gemini
