@@ -1452,7 +1452,7 @@ wheels = [
 
 [[package]]
 name = "nnja-ai-mcp"
-version = "0.10.1"
+version = "0.11.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
