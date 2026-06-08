@@ -23,7 +23,15 @@ class GeminiQueryHandler:
         self.client_session = client_session
         if not (api_key := os.getenv("GEMINI_API_KEY")):
             raise RuntimeError(
-                "Error: GEMINI_API_KEY environment variable not set",
+                "GEMINI_API_KEY is not set, so the AI chat client can't start.\n"
+                "\n"
+                "To fix this:\n"
+                "    1. Copy .env.template to .env\n"
+                "    2. Add GEMINI_API_KEY=<your key> "
+                "(get one at https://aistudio.google.com/apikey)"
+                "\n"
+                "Don't have a key? You can still explore the server without one:\n"
+                "   uv run mcp-client --members"
             )
 
         # Initialize the Gemini client
