@@ -104,10 +104,10 @@ class GeminiQueryHandler:
             for name, content in mentioned_docs
         )
 
-    async def _process_command(self, query: str) -> str:
+    async def _process_command(self, query: str) -> str | None:
         """Process a command (starting with /) using MCP prompts."""
         if not query.startswith("/"):
-            return ""
+            return None
 
         words = query.split()
         command_name = words[0][1:]
@@ -119,26 +119,26 @@ class GeminiQueryHandler:
         if prompt and prompt.arguments:
             args = {arg.name: word for arg, word in zip(prompt.arguments, arg_words)}
 
-        try:
-            messages = await self.get_prompt(command_name, args)
-            # Combine MCP prompt messages into a single string for Gemini
-            combined_prompt = ""
-            for msg in messages:
-                if isinstance(msg.content, types.TextContent):
-                    combined_prompt += f"{msg.role}: {msg.content.text}\n"
-                else:
-                    combined_prompt += f"{msg.role}: {msg.content}\n"
-            return combined_prompt
-        except Exception as e:
-            return f"Error processing command {command_name}: {e}"
+        messages = await self.get_prompt(command_name, args)
+        # Combine MCP prompt messages into a single string for Gemini
+        combined_prompt = ""
+        for msg in messages:
+            if isinstance(msg.content, types.TextContent):
+                combined_prompt += f"{msg.role}: {msg.content.text}\n"
+            else:
+                combined_prompt += f"{msg.role}: {msg.content}\n"
+        return combined_prompt
 
     async def process_query(self, query: str) -> str:
         """Process a query using Gemini and available MCP tools."""
 
         # Process a /prompt command if present
         if query.startswith("/"):
-            command_text = await self._process_command(query)
-            if command_text:
+            try:
+                command_text = await self._process_command(query)
+            except Exception as e:
+                return f"Error: could not run command '{query.split()[0]}': {e}"
+            if command_text is not None:
                 query = f"Execute this prompt:\n{command_text}"
 
         # Inject context from @resource mentions
