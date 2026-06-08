@@ -49,7 +49,7 @@ async def catalog_lifespan(server: FastMCP):
         _catalog = await asyncio.to_thread(DataCatalog)
     except Exception as e:
         raise RuntimeError(f"Failed to initialize NNJA_AI dataset catalog: {e}") from e
-    logger.info(f"DataCatalog ready in {perf_counter() - t:.2f} seconds.")
+    logger.info("DataCatalog ready in %.2f seconds.", perf_counter() - t)
     yield {}
 
 
@@ -724,7 +724,7 @@ def _access_dataset(
     dupes = len(var_mapping) - len(valid_vars)
     if dupes:
         logger.warning(
-            f"{dupes} variable(s) resolved to duplicate column IDs and were deduplicated."
+            "%d variable(s) resolved to duplicate column IDs and were deduplicated.", dupes
         )
 
     time_sel = slice(time, end_time) if end_time else time
