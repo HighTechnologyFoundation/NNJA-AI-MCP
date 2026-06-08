@@ -1,3 +1,6 @@
+import asyncio
+import itertools
+
 from mcp_client.handlers import GeminiQueryHandler
 from mcp.types import Resource
 from prompt_toolkit import PromptSession
@@ -156,6 +159,18 @@ class CommandAutoSuggest(AutoSuggest):
         return None
 
 
+async def _show_thinking(message: str = "Assistant is thinking") -> None:
+    """Animate a spinner until cancelled. Clears its own line on exit."""
+    try:
+        for frame in itertools.cycle("|/-\\"):
+            print(f"\r{message}... {frame}", end="", flush=True)
+            await asyncio.sleep(0.1)
+    except asyncio.CancelledError:
+        # Wipe the spinner line so the response prints cleanly
+        print("\r" + " " * (len(message) + 6) + "\r", end="", flush=True)
+        raise
+
+
 async def run_chat(handler: GeminiQueryHandler) -> None:
     """Run an AI-handled chat session with autocompletion."""
     print("\nMCP Client's Chat Started!")
@@ -276,8 +291,18 @@ async def run_chat(handler: GeminiQueryHandler) -> None:
                 print("Completions refreshed!")
                 continue
 
-            # Process the query through the handler and MCP
-            response = await handler.process_query(query)
+            spinner = asyncio.create_task(_show_thinking())
+            try:
+                # Process the query through the handler and MCP
+                response = await handler.process_query(query)
+            finally:
+                spinner.cancel()
+                try:
+                    # Let the cancellation propogate and clean up
+                    await spinner
+                except asyncio.CancelledError:
+                    pass
+
             print("\n" + response)
         except KeyboardInterrupt:
             print("\nType 'quit' to exit.")
