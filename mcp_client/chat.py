@@ -330,8 +330,6 @@ class ChatSession:
             buffer.insert_text("/")
             if buffer.document.is_cursor_at_the_end and buffer.text == "/":
                 buffer.start_completion(select_first=False)
-            # else:
-            #     buffer.insert_text("/")
 
         @kb.add("@")
         def _(event):
