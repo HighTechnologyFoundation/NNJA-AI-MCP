@@ -300,6 +300,7 @@ class ChatSession:
         print("\n" + response)
 
     async def _handle_refresh(self) -> None:
+        self.handler.invalidate_cache()
         await self.refresh_completions()
         print("Completions refreshed!")
 
