@@ -26,7 +26,6 @@ class UnifiedCompleter(Completer):
 
     def __init__(self):
         self.prompts = []
-        self.prompt_dict = {}
         self.resource_items = []  # Store (item, meta) tuples
         self.meta_types = []
         self.local_commands = {}  # name -> {"description": str, "handler": Callable}
@@ -37,7 +36,6 @@ class UnifiedCompleter(Completer):
     def update_prompts(self, prompts: list):
         """Update the list of available MCP prompts for / completion."""
         self.prompts = prompts
-        self.prompt_dict = {prompt.name: prompt for prompt in prompts}
 
     def update_resource_items(self, items: list[tuple]):
         """Update the list of available resources and their types for @ completion."""
