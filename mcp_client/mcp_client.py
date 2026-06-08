@@ -51,8 +51,8 @@ class MCPClient:
             # Perform MCP initialization handshake
             await client_session.initialize()
             return client_session
-        except Exception:
-            raise RuntimeError("Error: Failed to connect to server")
+        except Exception as e:
+            raise RuntimeError(f"Failed to connect to MCP server: {e}") from e
 
     async def list_all_members(self) -> None:
         """List all server-side tools, prompts, and resources."""
