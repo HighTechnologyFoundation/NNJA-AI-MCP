@@ -51,8 +51,8 @@ class GeminiQueryHandler:
             ),
         )
 
-        self._prompts_cache: list[types.Prompt] | None = None
-        self._resources_cache: list[types.Resource] | None = None
+        self._prompt_listing: list[types.Prompt] | None = None
+        self._resource_listing: list[types.Resource] | None = None
         self._resource_contents: dict[str, Any] = {}
 
     async def verify_model(self) -> None:
@@ -79,22 +79,22 @@ class GeminiQueryHandler:
 
     async def list_prompts(self) -> list[types.Prompt]:
         """List available prompts from the MCP server (cached)."""
-        if self._prompts_cache is None:
+        if self._prompt_listing is None:
             result = await self.client_session.list_prompts()
-            self._prompts_cache = result.prompts
-        return self._prompts_cache
+            self._prompt_listing = result.prompts
+        return self._prompt_listing
 
     async def list_resources(self) -> list[types.Resource]:
         """List available resources from the MCP server (cached)."""
-        if self._resources_cache is None:
+        if self._resource_listing is None:
             result = await self.client_session.list_resources()
-            self._resources_cache = result.resources
-        return self._resources_cache
+            self._resource_listing = result.resources
+        return self._resource_listing
 
     def invalidate_cache(self) -> None:
         """Drop cached prompt/resource listings so the next call re-fetches."""
-        self._prompts_cache = None
-        self._resources_cache = None
+        self._prompt_listing = None
+        self._resource_listing = None
         self._resource_contents.clear()
 
     async def get_prompt(
