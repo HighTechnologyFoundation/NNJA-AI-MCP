@@ -1,9 +1,11 @@
+import pathlib
 import sys
 from contextlib import AsyncExitStack
 from typing import Any, Awaitable, Callable, Self
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamable_http_client
 
 from mcp_client import chat
 from mcp_client.handlers import GeminiQueryHandler
@@ -13,8 +15,9 @@ class MCPClient:
     """Terminal-based MCP client to interact with an MCP server."""
 
     # Initializes the server executable path and an exit stack
-    def __init__(self, server_path: str):
-        self.server_path = server_path
+    def __init__(self, target: str):
+        self.target = target
+        self.use_http = target.startswith(("http://", "https://"))
         self.client_session: ClientSession
 
         # Simplifies managing multiple async context managers
@@ -31,19 +34,25 @@ class MCPClient:
 
     async def _connect_to_server(self) -> ClientSession:
         """Spawns the MCP server as a subprocess and initializes the MCP ClientSession."""
+        if not self.use_http and not pathlib.Path(self.target).exists():
+            raise RuntimeError(f"MCP server script '{self.target}' not found")
         try:
-            # Start the server via stdio communication
-            read, write = await self.exit_stack.enter_async_context(
-                stdio_client(
-                    server=StdioServerParameters(
-                        command=sys.executable,
-                        args=[self.server_path],
-                        env=None,
+            if self.use_http:
+                read, write, _ = await self.exit_stack.enter_async_context(
+                    streamable_http_client(self.target)
+                )
+            else:
+                read, write = await self.exit_stack.enter_async_context(
+                    stdio_client(
+                        server=StdioServerParameters(
+                            command=sys.executable,
+                            args=[self.target],
+                            env=None,
+                        )
                     )
                 )
-            )
 
-            # Create the MCP session over the stdio streams
+            # Create the MCP session over the chosen stream
             client_session = await self.exit_stack.enter_async_context(
                 ClientSession(read, write)
             )

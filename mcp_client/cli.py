@@ -1,18 +1,20 @@
 import argparse
-import pathlib
 
 
 def parse_args():
     """Parse command line arguments and return parsed args."""
     parser = argparse.ArgumentParser(description="A minimal MCP client")
 
-    # Optional positional argument for the server script
+    # Optional positional argument for the server script / URL
     parser.add_argument(
-        "server_path",
-        type=pathlib.Path,
+        "target",
         nargs="?",
-        default=pathlib.Path("server.py"),
-        help="path to the MCP server script (default: server.py)",
+        default="server.py",
+        help=(
+            "path to the MCP server script (stdio) "
+            "or an http(s):// URL of a running server "
+            "(default: server.py)"
+        ),
     )
 
     # Mutually exclusive group: user can choose either listing members or starting chat
