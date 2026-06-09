@@ -195,7 +195,7 @@ class ChatSession:
     async def run(self) -> None:
         print("\nMCP Client's Chat Started!")
         print(f"Model: {self.handler.model}")
-        print("Type your queries or 'quit' to exit.")
+        print("Type your queries. Exit with 'quit', 'q' or Ctrl-D.")
         print("Use @ to mention resources/items and / to use prompts.")
 
         # Initial load of completions
@@ -216,7 +216,7 @@ class ChatSession:
                 await self._respond(query)
 
             except KeyboardInterrupt:
-                print("\nType 'quit' to exit.")
+                print("\nUse 'quit', 'q', or Ctrl-D to exit.")
                 continue
             except EOFError:
                 break
