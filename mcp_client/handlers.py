@@ -53,6 +53,7 @@ class GeminiQueryHandler:
 
         self._prompts_cache: list[types.Prompt] | None = None
         self._resources_cache: list[types.Resource] | None = None
+        self._resource_contents: dict[str, Any] = {}
 
     async def verify_model(self) -> None:
         """Fail fast if the configured model can't server generateContent."""
@@ -94,6 +95,7 @@ class GeminiQueryHandler:
         """Drop cached prompt/resource listings so the next call re-fetches."""
         self._prompts_cache = None
         self._resources_cache = None
+        self._resource_contents.clear()
 
     async def get_prompt(
         self, name: str, arguments: dict | None = None
@@ -103,17 +105,23 @@ class GeminiQueryHandler:
         return result.messages
 
     async def read_resource(self, uri: str) -> Any:
-        """Read a resource from the MCP server and returns parsed JSON if applicable."""
+        """Read a resource from the MCP server (cached), returning parsed JSON if applicable."""
+        if uri in self._resource_contents:
+            return self._resource_contents[uri]
         result = await self.client_session.read_resource(AnyUrl(uri))
         resource = result.contents[0]
         if isinstance(resource, types.TextResourceContents):
             if resource.mimeType == "application/json":
                 try:
-                    return json.loads(resource.text)
+                    parsed = json.loads(resource.text)
                 except Exception:
-                    return resource.text
-            return resource.text
-        return str(resource)
+                    parsed = resource.text
+            else:
+                parsed = resource.text
+        else:
+            parsed = str(resource)
+        self._resource_contents[uri] = parsed
+        return parsed
 
     async def _extract_resources(self, query: str) -> str:
         """Extract resource mentions from query and fetch their content."""
