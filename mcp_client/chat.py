@@ -228,14 +228,18 @@ class ChatSession:
     async def refresh_completions(self) -> None:
         """Fetch updated prompts and resources from the MCP server to refresh autocompletion."""
         try:
+            # Fetch prompts and resources in parallel
+            prompts, resources = await asyncio.gather(
+                self.handler.list_prompts(),
+                self.handler.list_resources(),
+            )
+
             # Update prompts
-            prompts = await self.handler.list_prompts()
             self.completer.update_prompts(prompts)
             self.autosuggester.prompts = prompts
             self.autosuggester.prompt_dict = {p.name: p for p in prompts}
 
             # Update resources and nested items from list providers
-            resources = await self.handler.list_resources()
             all_items = []
 
             for res in resources:
