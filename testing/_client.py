@@ -29,6 +29,8 @@ def run_tool(tool: str, args: dict[str, Any], *, url: str = DEFAULT_URL) -> Any:
     payload = result.data
     if isinstance(payload, str) and payload.startswith("Error"):
         raise SystemExit(f"{tool} errored after {duration:.2f}s: {payload}")
+    if payload is None:
+        raise SystemExit(f"{tool} returned no result after {duration:.2f}s")
 
     print(f"Time taken: {duration:.2f} seconds")
     print(result)
