@@ -445,7 +445,7 @@ def calculate_spectral_index(
     if index_name not in mapping[resolved_dataset]:
         return f"Error: Index '{index_name}' not implemented for dataset '{dataset}' ({resolved_dataset})."
 
-    var1, var2 = mapping[dataset][index_name]
+    var1, var2 = mapping[resolved_dataset][index_name]
 
     try:
         df = _access_dataset(
