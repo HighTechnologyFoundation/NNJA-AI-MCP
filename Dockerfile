@@ -8,9 +8,9 @@ RUN pip install uv
 # Copy dependency files
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies using uv
+# Install server dependencies using uv
 RUN uv venv
-RUN uv sync --locked
+RUN uv sync --locked --no-default-groups
 
 # Copy application code
 COPY server.py .

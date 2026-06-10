@@ -4,17 +4,28 @@ version = "0.12.0"
 description = "MCP server to access NNJA-AI datasets and client to test."
 readme = "README.md"
 requires-python = ">=3.13"
+# Server-only runtime dependencies
 dependencies = [
     "fastmcp>=3.0.0,<4",
     "fuzzywuzzy>=0.18.0",
-    "google-genai>=1.43.0,<1.74.0",
-    "matplotlib>=3.10.7",
     "nnja-ai>=1.0.0",
-    "prompt-toolkit>=3.0.52",
-    "pyqt6>=6.9.1",
+    "numpy>=2.4.6",
+    "pandas>=3.0.3",
     "python-levenshtein>=0.27.3",
     "scipy>=1.16.3",
 ]
+
+# Client + example dependencies - not used to run the server
+[dependency-groups]
+client = [
+    "google-genai>=1.43.0,<1.74.0",
+    "matplotlib>=3.10.7",
+    "prompt-toolkit>=3.0.52",
+    "pyqt6>=6.9.1",
+]
+
+[tool.uv]
+default-groups = ["client"] # bare `uv sync` installs all dependencies
 
 [project.scripts]
 mcp-client = "mcp_client.__main__:cli_main"
