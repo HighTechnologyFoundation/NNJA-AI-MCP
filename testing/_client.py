@@ -20,16 +20,20 @@ async def _call(tool: str, args: dict[str, Any], url: str) -> Any:
         return await client.call_tool(tool, args)
 
 
+def _check_result(tool: str, payload: Any, duration: float) -> None:
+    """Raise SystemExit if the tool failed or returned nothing."""
+    if isinstance(payload, str) and payload.startswith("Error"):
+        raise SystemExit(f"{tool} errored after {duration:.2f}s: {payload}")
+    if payload is None:
+        raise SystemExit(f"{tool} returned no result after {duration:.2f}s")
+
+
 def run_tool(tool: str, args: dict[str, Any], *, url: str = DEFAULT_URL) -> Any:
     """Connect, call one tool, print timing + result, and return it."""
     start = perf_counter()
     result = asyncio.run(_call(tool, args, url))
     duration = perf_counter() - start
-
-    payload = result.data
-    if isinstance(payload, str) and payload.startswith("Error"):
-        raise SystemExit(f"{tool} errored after {duration:.2f}s: {payload}")
-
+    _check_result(tool, result.data, duration)
     print(f"Time taken: {duration:.2f} seconds")
     print(result)
     return result
