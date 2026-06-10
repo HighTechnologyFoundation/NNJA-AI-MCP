@@ -1,0 +1,7 @@
+# Allowlist (deny-by-default)
+*
+
+# Allow (un-ignore) only the necessary files
+!server.py
+!pyproject.toml
+!uv.lock
