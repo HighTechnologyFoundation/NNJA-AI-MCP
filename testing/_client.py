@@ -12,11 +12,13 @@ from fastmcp import Client
 
 DEFAULT_URL = "http://localhost:8000/mcp"
 
-async def _call(tool: str, args: dict[str, Any], url:str) -> Any:
-    client = Client(DEFAULT_URL)
+
+async def _call(tool: str, args: dict[str, Any], url: str) -> Any:
+    client = Client(url)
     async with client:
         print(f"Connected: {client.is_connected()}")
         return await client.call_tool(tool, args)
+
 
 def run_tool(tool: str, args: dict[str, Any], *, url: str = DEFAULT_URL) -> Any:
     """Connect, call one tool, print timing + result, and return it."""
