@@ -82,13 +82,28 @@ Pandas DataFrames for traditional data science.
 
 ## Running with Docker
 
-The server can be containerized for easier deployment or integration
-with other MCP clients.
+The container runs the **MCP server** (not the client) in HTTP mode -
+the `Dockerfile` sets `MCP_TRANSPORT=http`, and the server listens at
+`http://localhost:8000/mcp`.
 
 ```bash
-docker build -t mcp-server .        # Build the Docker image
-docker run -p 8000:8000 mcp-server  # Run the Docker container
+docker build -t nnja-ai-mcp .        # Build the image
+docker run -p 8000:8000 nnja-ai-mcp  # Start the server (HTTP, port 8000)
 ```
+
+The server loads its dataset catalog on startup, which takes a few seconds.
+Wait for it to be ready before connecting.
+
+Then, connect a client to the host by pointing it at the container's URL:
+
+```bash
+# Interactive chat with the containerized server (needs GEMINI_API_KEY in .env)
+uv run mcp-client --chat http://localhost:8000/mcp
+```
+
+The example clients (`client.py`, `simple-client.py`) and the `testing/`
+scripts also expect the server at `http://localhost:8000/mcp`, so they
+run against this container too.
 
 ## Project Structure
 
