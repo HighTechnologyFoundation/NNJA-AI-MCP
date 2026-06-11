@@ -25,6 +25,7 @@ client = [
 ]
 dev = [
     "pytest>=9.0.3",
+    "ty==0.0.48",
 ]
 
 [tool.uv]
