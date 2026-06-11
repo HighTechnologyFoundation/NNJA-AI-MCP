@@ -141,23 +141,22 @@ class GeminiQueryHandler:
                 except Exception as e:
                     logger.warning("Error reading resource %s: %s", resource.name, e)
 
-            # Special handling for list providers
-            if "list" in resource.name.lower() or "datasets" in resource.name.lower():
+            # Special handling for dataset list provider
+            if "datasets" in resource.name.lower():
                 try:
                     items = await self.read_resource(str(resource.uri))
                     if isinstance(items, list):
                         for item in items:
                             if str(item) in mentions:
-                                # If an item matches, we might want to fetch IT as a resource
-                                # OR just use the item name as context.
-                                # Often there's a template, but without knowing it, we'll just
-                                # include the fact that this item was selected.
-                                mentioned_docs.append(
-                                    (str(item), f"Selected item from {resource.name}")
+                                info = await self.client_session.call_tool(
+                                    "dataset_info", {"dataset": str(item)}
                                 )
+                                if not info.isError:
+                                    mentioned_docs.append(
+                                        (str(item), str(info.content))
+                                    )
                 except Exception as e:
-                    logger.debug("Skipping list provider %s: %s", resource.name, e)
-                    pass
+                    logger.debug("Could not fetch dataset info for a mention: %s", e)
 
         # Return the collected resources wrapped in XML tags for the LLM
         return "".join(
@@ -227,14 +226,14 @@ class GeminiQueryHandler:
         # Inject context from @resource mentions
         added_resources = await self._extract_resources(query)
         if added_resources:
-            query = f"""
-            The following context may be useful:
-            <context>
-            {added_resources}
-            </context>
-
-            User Query: {query}
-            """
+            query = (
+                "The following context may be useful:\n"
+                "<context>\n"
+                f"{added_resources}\n"
+                "</context>\n"
+                "\n"
+                f"User Query: {query}"
+            )
 
         response = await self.chat.send_message(query)
 
