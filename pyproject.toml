@@ -23,9 +23,12 @@ client = [
     "prompt-toolkit>=3.0.52",
     "pyqt6>=6.9.1",
 ]
+dev = [
+    "pytest>=9.0.3",
+]
 
 [tool.uv]
-default-groups = ["client"] # bare `uv sync` installs all dependencies
+default-groups = ["client", "dev"] # bare `uv sync` installs all dependencies
 
 [project.scripts]
 mcp-client = "mcp_client.__main__:cli_main"
