@@ -2,12 +2,13 @@ import json
 from typing import Any
 
 import mcp.types as types
-from pydantic import AnyUrl
 from mcp import ClientSession
+from pydantic import AnyUrl
 
 
 class MCPGateway:
     """Cached access to the MCP server: listings, reads, prompt fetch, tool calls."""
+
     def __init__(self, client_session: ClientSession):
         self.client_session = client_session
         self._prompt_listing: list[types.Prompt] | None = None
