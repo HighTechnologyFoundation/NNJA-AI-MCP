@@ -473,9 +473,7 @@ def calculate_spectral_index(
         case "cloud_cooling":
             return json.dumps(_calculate_cloud_cooling_index(df, var1))
         case "wildfire_risk":
-            return json.dumps(
-                _calculate_wildfire_risk_index(df, var1)
-            )
+            return json.dumps(_calculate_wildfire_risk_index(df, var1))
 
 
 @mcp.tool()
