@@ -811,7 +811,7 @@ def _fuzzy_variable_search(
         return result
 
     # Use the cached variable index when possible for efficiency
-    all_valid_ids, dataset_vars = _build_variable_index(dataset)
+    all_valid_ids, dataset_vars = _build_variable_index(dataset.name)
 
     choices = list(dataset_vars.keys()) + list(all_valid_ids)
 
@@ -1066,16 +1066,18 @@ def _data_category(
 
 # Internal function to cache variable metadata for quicker repeated access
 @lru_cache(maxsize=None)
-def _build_variable_index(dataset: NNJADataset) -> tuple[set[str], dict[str, str]]:
+def _build_variable_index(dataset_name: str) -> tuple[set[str], dict[str, str]]:
     """Build a searchable index of variable IDs and descriptions for a dataset.
 
     Args:
-        dataset (NNJADataset): The dataset to build the variable index for.
+        dataset_name (str): The name of the dataset to build the variable index for.
 
     Returns:
         tuple[set[str], dict[str, str]]: A tuple of (all_valid_ids, dataset_vars) where
             all_valid_ids is a set of all variable IDs and dataset_vars maps descriptions to IDs.
     """
+    dataset = _catalog[dataset_name]
+
     all_valid_ids = set()
     dataset_vars = {}
 
