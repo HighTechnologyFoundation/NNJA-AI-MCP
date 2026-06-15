@@ -1,15 +1,13 @@
-import json
 import logging
 import os
 import shlex
-from typing import Any
 
 import mcp.types as types
 from dotenv import load_dotenv
 from fuzzywuzzy import process
 from google import genai
-from mcp import ClientSession
-from pydantic import AnyUrl
+
+from mcp_client.gateway import MCPGateway
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +20,8 @@ DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
 class GeminiQueryHandler:
     """Handle Gemini API interaction and MCP tool execution."""
 
-    def __init__(self, client_session: ClientSession, model: str | None = None):
-        self.client_session = client_session
+    def __init__(self, mcp: MCPGateway, model: str | None = None):
+        self.mcp = mcp
         if not (api_key := os.getenv("GEMINI_API_KEY")):
             raise RuntimeError(
                 "GEMINI_API_KEY is not set, so the AI chat client can't start.\n"
@@ -47,13 +45,9 @@ class GeminiQueryHandler:
         self.chat = self.gemini.aio.chats.create(
             model=self.model,
             config=genai.types.GenerateContentConfig(
-                tools=[self.client_session],  # Expose MCP tools to the LLM
+                tools=[mcp.client_session],  # Expose MCP tools to the LLM
             ),
         )
-
-        self._prompt_listing: list[types.Prompt] | None = None
-        self._resource_listing: list[types.Resource] | None = None
-        self._resource_contents: dict[str, Any] = {}
 
     async def verify_model(self) -> None:
         """Fail fast if the configured model can't server generateContent."""
@@ -77,66 +71,20 @@ class GeminiQueryHandler:
                 f"{preview}"
             )
 
-    async def list_prompts(self) -> list[types.Prompt]:
-        """List available prompts from the MCP server (cached)."""
-        if self._prompt_listing is None:
-            result = await self.client_session.list_prompts()
-            self._prompt_listing = result.prompts
-        return self._prompt_listing
-
-    async def list_resources(self) -> list[types.Resource]:
-        """List available resources from the MCP server (cached)."""
-        if self._resource_listing is None:
-            result = await self.client_session.list_resources()
-            self._resource_listing = result.resources
-        return self._resource_listing
-
-    def invalidate_cache(self) -> None:
-        """Drop cached prompt/resource listings so the next call re-fetches."""
-        self._prompt_listing = None
-        self._resource_listing = None
-        self._resource_contents.clear()
-
-    async def get_prompt(
-        self, name: str, arguments: dict | None = None
-    ) -> list[types.PromptMessage]:
-        """Retrieve a specific prompt by name, optionally with arguments."""
-        result = await self.client_session.get_prompt(name, arguments)
-        return result.messages
-
-    async def read_resource(self, uri: str) -> Any:
-        """Read a resource from the MCP server (cached), returning parsed JSON if applicable."""
-        if uri in self._resource_contents:
-            return self._resource_contents[uri]
-        result = await self.client_session.read_resource(AnyUrl(uri))
-        resource = result.contents[0]
-        if isinstance(resource, types.TextResourceContents):
-            if resource.mimeType == "application/json":
-                try:
-                    parsed = json.loads(resource.text)
-                except Exception:
-                    parsed = resource.text
-            else:
-                parsed = resource.text
-        else:
-            parsed = str(resource)
-        self._resource_contents[uri] = parsed
-        return parsed
-
     async def _extract_resources(self, query: str) -> str:
         """Extract resource mentions from query and fetch their content."""
         mentions = [word[1:] for word in query.split() if word.startswith("@")]
         if not mentions:
             return ""
 
-        resources = await self.list_resources()
+        resources = await self.mcp.list_resources()
         mentioned_docs: list[tuple[str, str]] = []
 
         for resource in resources:
             # Match against resource names or URIs
             if resource.name in mentions or str(resource.uri) in mentions:
                 try:
-                    content = await self.read_resource(str(resource.uri))
+                    content = await self.mcp.read_resource(str(resource.uri))
                     mentioned_docs.append((resource.name, str(content)))
                 except Exception as e:
                     logger.warning("Error reading resource %s: %s", resource.name, e)
@@ -144,11 +92,11 @@ class GeminiQueryHandler:
             # Special handling for dataset list provider
             if "datasets" in resource.name.lower():
                 try:
-                    items = await self.read_resource(str(resource.uri))
+                    items = await self.mcp.read_resource(str(resource.uri))
                     if isinstance(items, list):
                         for item in items:
                             if str(item) in mentions:
-                                info = await self.client_session.call_tool(
+                                info = await self.mcp.client_session.call_tool(
                                     "dataset_info", {"dataset": str(item)}
                                 )
                                 if not info.isError:
@@ -177,7 +125,7 @@ class GeminiQueryHandler:
         command_name = words[0][1:]
         arg_words = words[1:]
 
-        prompts = await self.list_prompts()
+        prompts = await self.mcp.list_prompts()
         prompt = next((p for p in prompts if p.name == command_name), None)
         if prompt is None:
             raise ValueError(f"Unknown command: /{command_name}")
@@ -201,7 +149,7 @@ class GeminiQueryHandler:
 
         args = {spec.name: word for spec, word in zip(arg_specs, arg_words)}
 
-        messages = await self.get_prompt(command_name, args)
+        messages = await self.mcp.get_prompt(command_name, args)
         # Combine MCP prompt messages into a single string for Gemini
         combined_prompt = ""
         for msg in messages:

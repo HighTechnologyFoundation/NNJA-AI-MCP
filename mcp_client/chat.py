@@ -181,6 +181,7 @@ async def _show_thinking(message: str = "Assistant is thinking") -> None:
 class ChatSession:
     def __init__(self, handler: GeminiQueryHandler) -> None:
         self.handler = handler
+        self.mcp = handler.mcp
         self.completer = UnifiedCompleter()
         self.autosuggester = CommandAutoSuggest([])
         self.local_commands: dict[str, LocalCommand] = {
@@ -230,8 +231,8 @@ class ChatSession:
         try:
             # Fetch prompts and resources in parallel
             prompts, resources = await asyncio.gather(
-                self.handler.list_prompts(),
-                self.handler.list_resources(),
+                self.mcp.list_prompts(),
+                self.mcp.list_resources(),
             )
 
             # Update prompts
@@ -251,7 +252,7 @@ class ChatSession:
                 # If it's a list provider, fetch the items inside it
                 if is_list_provider:
                     try:
-                        content = await self.handler.read_resource(str(res.uri))
+                        content = await self.mcp.read_resource(str(res.uri))
                         item_meta = meta.rstrip("s") if meta.endswith("s") else meta
                         if item_meta == "Resource":
                             item_meta = "Item"
@@ -305,7 +306,7 @@ class ChatSession:
         print("\n" + response)
 
     async def _handle_refresh(self) -> None:
-        self.handler.invalidate_cache()
+        self.mcp.invalidate_cache()
         await self.refresh_completions()
         print("Completions refreshed!")
 
