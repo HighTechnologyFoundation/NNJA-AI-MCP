@@ -9,6 +9,7 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 
 from mcp_client import chat
+from mcp_client.gateway import MCPGateway
 from mcp_client.handlers import GeminiQueryHandler
 
 
@@ -106,7 +107,8 @@ class MCPClient:
     async def run_chat(self, model: str | None = None) -> None:
         """Initializes the query handler and launches the interactive chat UI."""
         try:
-            handler = GeminiQueryHandler(self.client_session, model=model)
+            mcp = MCPGateway(self.client_session)
+            handler = GeminiQueryHandler(mcp, model=model)
             await handler.verify_model()
             await chat.run_chat(handler)
         except RuntimeError as e:
