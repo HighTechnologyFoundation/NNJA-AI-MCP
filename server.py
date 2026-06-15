@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -733,11 +734,13 @@ def _access_dataset(
 
     time_sel = slice(time, end_time) if end_time else time
 
-    # Filter the valid dataset down to only the subset of interest
-    filtered_dataset = chosen_dataset.sel(time=time_sel, variables=valid_vars)
+    # Redirect any NNJA-AI stdout output to stderr (prevent MCP protocol corruption)
+    with contextlib.redirect_stdout(sys.stderr):
+        # Filter the valid dataset down to only the subset of interest
+        filtered_dataset = chosen_dataset.sel(time=time_sel, variables=valid_vars)
 
-    # Load the chosen dataset into a pandas DataFrame
-    df = filtered_dataset.load_dataset(backend="pandas")
+        # Load the chosen dataset into a pandas DataFrame
+        df = filtered_dataset.load_dataset(backend="pandas")
 
     # Spatial filtering
     if lat_bounds:
