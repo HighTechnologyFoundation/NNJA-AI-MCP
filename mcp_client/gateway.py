@@ -36,7 +36,7 @@ class MCPGateway:
         result = await self.client_session.get_prompt(name, arguments)
         return result.messages
 
-    async def read_resource(self, uri):
+    async def read_resource(self, uri: str) -> Any:
         """Read a resource from the MCP server (cached), returning parsed JSON if applicable."""
         if uri in self._resource_contents:
             return self._resource_contents[uri]
@@ -60,7 +60,3 @@ class MCPGateway:
         self._prompt_listing = None
         self._resource_listing = None
         self._resource_contents.clear()
-
-    async def call_tool(self, name, args):
-        """Simple function to call a tool through the client session."""
-        return await self.client_session.call_tool(name, args)
