@@ -875,16 +875,12 @@ def _calculate_cloud_cooling_index(
 def _calculate_wildfire_risk_index(
     df: pd.DataFrame,
     bt_39: str,
-    time: str,
-    lon_bounds: list[float] | None = None,
 ) -> dict[str, Any]:
     """Calculate a wildfire risk index for satellite data based on difference between shortwave (3.9um) and longwave (10.8um) IR.
 
     Args:
         df (pd.DataFrame): The DataFrame containing the satellite data.
         bt_39 (str): The name of the variable representing the brightness temperature at 3.9um.
-        time (str): The time of interest (YYYY-MM-DD).
-        lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
     Returns:
         dict[str, Any]: A dictionary with the calculated index statistics.
