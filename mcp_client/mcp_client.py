@@ -1,4 +1,5 @@
 import pathlib
+import re
 import sys
 from contextlib import AsyncExitStack
 from typing import Any, Awaitable, Callable, Self
@@ -35,6 +36,11 @@ class MCPClient:
     async def _connect_to_server(self) -> ClientSession:
         """Spawns the MCP server as a subprocess and initializes the MCP ClientSession."""
         if not self.use_http and not pathlib.Path(self.target).exists():
+            if re.match(r"[\w.\-]+:\d+", self.target):
+                raise RuntimeError(
+                    f"'{self.target}' looks like a server address. "
+                    f"Did you mean 'http://{self.target}'?"
+                )
             raise RuntimeError(f"MCP server script '{self.target}' not found")
         try:
             if self.use_http:
