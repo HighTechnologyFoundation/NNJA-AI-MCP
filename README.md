@@ -63,8 +63,8 @@ If you (or the AI) make a typo, the server will automatically find the closest v
     uv run mcp-client --chat
 
     # Alternatively, you can activate the virtual environment and then run the CLI:
-    source .venv/bin/activate      # Linux/macOS
-    source .venv\Scripts\activate  # Windows
+    source .venv/bin/activate  # Linux/macOS
+    .venv\Scripts\activate     # Windows
     mcp-client --chat
     ```
 
