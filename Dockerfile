@@ -22,4 +22,4 @@ EXPOSE 8000
 ENV MCP_TRANSPORT=http
 
 # Command to run the server
-CMD ["uv", "run", "server.py"]
+CMD ["uv", "run", "--no-sync", "server.py"]
