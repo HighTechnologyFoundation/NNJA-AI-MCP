@@ -447,9 +447,14 @@ def calculate_spectral_index(
 
     var1, var2 = mapping[resolved_dataset][index_name]
 
+    load_vars = [var1, var2]
+    if index_name == "wildfire_risk":
+        # per-row time & lon for day/night classification
+        load_vars += ["MSG_DATE", "longitude"]
+
     try:
         df = _access_dataset(
-            dataset, time, [var1, var2], rows, lat_bounds, lon_bounds, end_time
+            dataset, time, load_vars, rows, lat_bounds, lon_bounds, end_time
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -468,9 +473,7 @@ def calculate_spectral_index(
         case "cloud_cooling":
             return json.dumps(_calculate_cloud_cooling_index(df, var1))
         case "wildfire_risk":
-            return json.dumps(
-                _calculate_wildfire_risk_index(df, var1, time, lon_bounds)
-            )
+            return json.dumps(_calculate_wildfire_risk_index(df, var1))
 
 
 @mcp.tool()
@@ -870,16 +873,12 @@ def _calculate_cloud_cooling_index(
 def _calculate_wildfire_risk_index(
     df: pd.DataFrame,
     bt_39: str,
-    time: str,
-    lon_bounds: list[float] | None = None,
 ) -> dict[str, Any]:
     """Calculate a wildfire risk index for satellite data based on difference between shortwave (3.9um) and longwave (10.8um) IR.
 
     Args:
         df (pd.DataFrame): The DataFrame containing the satellite data.
         bt_39 (str): The name of the variable representing the brightness temperature at 3.9um.
-        time (str): The time of interest (YYYY-MM-DD).
-        lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
     Returns:
         dict[str, Any]: A dictionary with the calculated index statistics.
@@ -887,20 +886,11 @@ def _calculate_wildfire_risk_index(
     desc_stats = df["index_value"].describe().to_dict()
 
     # Parse UTC hour from NNJA-AI time configuration
-    if "T" in time:
-        utc_hour = int(time.split("T")[1].split(":")[0])
-    else:
-        utc_hour = 0  # Default to 0 UTC if no time provided
-
-    # Extract spatial layout to deduce Local Solar Time over SEVIRI disk
-    if lon_bounds and len(lon_bounds) == 2:
-        avg_lon = sum(lon_bounds) / 2
-    else:
-        avg_lon = 0.0  # Default to Prime Meridian
+    utc_hour = df["MSG_DATE"].dt.hour
 
     # Solar time adjustment (15 degrees longitude = 1 hour difference from UTC)
-    local_hour = (utc_hour + int(avg_lon / 15.0)) % 24
-    is_night = local_hour < 6 or local_hour > 18
+    local_hour = (utc_hour + (df["LON"] / 15.0).astype(int)) % 24
+    is_night = (local_hour < 6) | (local_hour > 18)  # per-row boolean Series
 
     # Apply vectorized wildfire risk categorization to the data, providing bt_39 and the is_night flag
     df["index_category"] = _data_category("wildfire_risk", df, bt_39, is_night)
@@ -917,8 +907,6 @@ def _calculate_wildfire_risk_index(
             "active_wildfire_pixels": int(
                 (df["index_category"] == "High Risk (Active Wildfire)").sum()
             ),
-            "thresholds_used": "Nighttime" if is_night else "Daytime",
-            "calculated_local_hour": round(local_hour, 1),
             "sample_size": int(desc_stats["count"]),
         },
         "index_distribution": distribution,
@@ -935,7 +923,7 @@ def _data_category(
     analysis: Literal["lapse_rate", "cloud_cooling", "wildfire_risk"],
     df: pd.DataFrame,
     var: str,
-    is_night: bool = True,
+    is_night: pd.Series | None = None,
 ) -> np.ndarray:
     """Categorize data analysis values based on typical conditions and any other provided factors.
 
@@ -943,8 +931,8 @@ def _data_category(
         analysis (Literal["lapse_rate", "cloud_cooling", "wildfire_risk"]): The type of analysis results to categorize.
         df (pd.DataFrame): The DataFrame containing the relevant variables.
         var (str): The name of the variable needed to make specific classifications.
-        is_night (bool, optional): Whether the observation is during nighttime, which affects the interpretation of wildfire risk.
-            Only used for "wildfire_risk" analysis type, ignored otherwise. Defaults to True.
+        is_night (pd.Series, optional): Boolean mask of whether each observation is during nighttime, which affects the interpretation of wildfire risk.
+            Only used for "wildfire_risk" analysis type, ignored otherwise.
 
     Returns:
         np.ndarray: An array of category labels for the variable values analyzed.
@@ -1033,21 +1021,32 @@ def _data_category(
             # This should be pre-calculated as the difference between the two channels (BT_39 - BT_108)
             btd = df["index_value"]
 
-            if is_night:
-                conditions = [
-                    (btd >= NIGHT_HIGH_RISK_BTD_MIN)
-                    & (bt_39 > NIGHT_HIGH_RISK_BT39_MIN),
-                    (btd >= NIGHT_MEDIUM_RISK_BTD_MIN),
-                    (btd >= NIGHT_LOW_RISK_BTD_MIN),
-                    (btd < NIGHT_LOW_RISK_BTD_MIN),
-                ]
-            else:
-                conditions = [
-                    (btd >= DAY_HIGH_RISK_BTD_MIN) & (bt_39 > DAY_HIGH_RISK_BT39_MIN),
-                    (btd >= DAY_MEDIUM_RISK_BTD_MIN),
-                    (btd >= DAY_LOW_RISK_BTD_MIN),
-                    (btd < DAY_LOW_RISK_BTD_MIN),
-                ]
+            # Per-row day/night classification requires the is_night mask (loaded from MSG_DATE)
+            if is_night is None:
+                raise RuntimeError(
+                    "wildfire_risk categorization requires a per-row is_night mask"
+                )
+
+            # Per-row thresholds: night vs day values based on is_night
+            high_btd_min = np.where(
+                is_night, NIGHT_HIGH_RISK_BTD_MIN, DAY_HIGH_RISK_BTD_MIN
+            )
+            high_bt_39_min = np.where(
+                is_night, NIGHT_HIGH_RISK_BT39_MIN, DAY_HIGH_RISK_BT39_MIN
+            )
+            med_btd_min = np.where(
+                is_night, NIGHT_MEDIUM_RISK_BTD_MIN, DAY_MEDIUM_RISK_BTD_MIN
+            )
+            low_btd_min = np.where(
+                is_night, NIGHT_LOW_RISK_BTD_MIN, DAY_LOW_RISK_BTD_MIN
+            )
+
+            conditions = [
+                (btd >= high_btd_min) & (bt_39 > high_bt_39_min),
+                (btd >= med_btd_min),
+                (btd >= low_btd_min),
+                (btd < low_btd_min),
+            ]
 
             categories = [
                 "High Risk (Active Wildfire)",
