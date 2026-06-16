@@ -5,6 +5,9 @@ WORKDIR /app
 # Install uv for faster package management
 RUN pip install uv
 
+# Create non-root user
+RUN useradd --create-home --uid 1000 appuser
+
 # Copy dependency files
 COPY pyproject.toml uv.lock* ./
 
@@ -13,6 +16,9 @@ RUN uv sync --locked --no-default-groups
 
 # Copy application code
 COPY server.py .
+
+# Run as a non-root user (least privilege)
+USER appuser
 
 # Expose the port the server runs on
 EXPOSE 8000
