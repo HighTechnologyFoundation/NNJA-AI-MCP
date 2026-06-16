@@ -27,4 +27,4 @@ EXPOSE 8000
 ENV MCP_TRANSPORT=http
 
 # Command to run the server
-CMD ["uv", "run", "--no-sync", "server.py"]
+CMD ["/app/.venv/bin/python", "server.py"]
