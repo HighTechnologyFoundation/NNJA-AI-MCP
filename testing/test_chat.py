@@ -4,10 +4,10 @@ A cancelled in-flight query must return to the prompt gracefully — `_respond`
 catches CancelledError, tells the user how to exit, and restores the SIGINT
 handler — instead of crashing the REPL.
 
-This drives the cancellation *path* directly: it invokes the installed SIGINT
-handler rather than delivering a real OS signal (faithful signal delivery is
-OS-specific and flaky to test, especially on Windows). It does not assert that
-the OS delivers SIGINT — only that, once a cancel is triggered, the REPL recovers.
+It fires SIGINT with `signal.raise_signal` — the portable, in-process way to drive
+a signal handler in a test, without an interactive Ctrl-C or `os.kill` (whose SIGINT
+handling is awkward on Windows). It checks that the REPL recovers when SIGINT fires;
+it does not exercise an interactive terminal Ctrl-C.
 """
 
 import asyncio
@@ -46,12 +46,12 @@ async def test_ctrl_c_cancels_query_and_restores_handler():
 
             # query is running, so _respond has installed its handler
             await started.wait()
-            installed = signal.getsignal(signal.SIGINT)
-            assert installed is not original  # _respond swapped SIGINT in
+            # _respond swapped in its own SIGINT handler
+            assert signal.getsignal(signal.SIGINT) is not original
 
             with redirect_stdout(captured):
-                # simulate Ctrl-C
-                installed(signal.SIGINT, None)
+                # fire SIGINT in-process: runs _respond's handler -> cancels the query
+                signal.raise_signal(signal.SIGINT)
 
                 # must return, not raise/hang
                 await asyncio.wait_for(respond, timeout=5)
