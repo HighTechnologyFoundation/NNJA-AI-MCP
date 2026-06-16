@@ -41,7 +41,7 @@ If you (or the AI) make a typo, the server will automatically find the closest v
 
 1. Clone the repository
 
-1. Configure environment variables:
+1. Configure environment variables (required for `--chat` mode, skip if only using `--members`):
 
     ```bash
     cp .env.template .env
@@ -68,12 +68,20 @@ If you (or the AI) make a typo, the server will automatically find the closest v
     mcp-client --chat
     ```
 
+    No Gemini key yet? The `--members` mode lists the server's tools, prompts,
+    and resources without one:
+
+    ```bash
+    uv run mcp-client --members
+    ```
+
 ## Example Clients
 
 This repository includes three different ways to interact with the MCP server:
 
-1. `mcp_client/` (CLI): An interactive, AI-powered chat interface. Best for
-natural language exploration of the data.
+1. `mcp_client/` (CLI): An interactive client. Use `--chat` for AI-powered
+natural-language exploration (needs a Gemini key), or `--members` to list
+the server's tools/prompts/resources (no key required).
 1. `client.py`: A scripted AI agent that performs a specific query and exits.
 Useful for seeing how to integrate MCP into your own Python automation.
 1. `simple-client.py`: A "manual" client that calls MCP tools directly without
