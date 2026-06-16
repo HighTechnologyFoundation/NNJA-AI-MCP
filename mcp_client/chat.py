@@ -1,5 +1,6 @@
 import asyncio
 import itertools
+import signal
 from collections.abc import Awaitable, Callable
 from typing import TypedDict
 
@@ -291,10 +292,26 @@ class ChatSession:
         return True
 
     async def _respond(self, query: str) -> None:
+        loop = asyncio.get_running_loop()
+        task = asyncio.create_task(self._run_query(query))
+
+        def _cancel_on_sigint(*_):
+            loop.call_soon_threadsafe(task.cancel)  # safe to call from a signal handler
+
+        previous = signal.signal(signal.SIGINT, _cancel_on_sigint)
+
+        try:
+            print("\n" + await task)
+        except asyncio.CancelledError:
+            print("\n(cancelled - 'quit', 'q', or Ctrl-D to exit)")
+        finally:
+            signal.signal(signal.SIGINT, previous)  # restore for the idle prompt
+
+    async def _run_query(self, query: str) -> str:
         spinner = asyncio.create_task(_show_thinking())
         try:
             # Process the query through the handler and MCP
-            response = await self.handler.process_query(query)
+            return await self.handler.process_query(query)
         finally:
             spinner.cancel()
             try:
@@ -302,8 +319,6 @@ class ChatSession:
                 await spinner
             except asyncio.CancelledError:
                 pass
-
-        print("\n" + response)
 
     async def _handle_refresh(self) -> None:
         self.mcp.invalidate_cache()
