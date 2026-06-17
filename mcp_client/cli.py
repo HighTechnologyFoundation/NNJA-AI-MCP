@@ -39,4 +39,13 @@ def parse_args():
             "(overrides the GEMINI_MODEL env var; default: gemini-3.1-flash-lite)"
         ),
     )
+
+    # Optional flag for verbose (debug) mode
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="enable debug logging (to stderr)",
+    )
+
     return parser.parse_args()

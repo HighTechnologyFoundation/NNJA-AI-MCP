@@ -1,13 +1,29 @@
 import asyncio
+import logging
+import sys
 
 from mcp_client.cli import parse_args
 from mcp_client.mcp_client import MCPClient
+
+
+def configure_logging(verbose: bool) -> None:
+    """Send logs to stderr, surface mcp_client debug logs only when verbose."""
+    logging.basicConfig(
+        level=logging.WARNING,
+        stream=sys.stderr,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+    logging.getLogger("mcp_client").setLevel(
+        logging.DEBUG if verbose else logging.WARNING
+    )
 
 
 async def main():
     """Run the MCP client with the specified options."""
     # Parse CLI arguments to determine what operation to perform
     args = parse_args()
+
+    configure_logging(args.verbose)
 
     try:
         # Initialize and connect to the MCP server
