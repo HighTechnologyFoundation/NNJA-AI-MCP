@@ -137,11 +137,7 @@ class GeminiQueryHandler:
                 f"got {len(arg_words)}"
             )
 
-        missing = [
-            spec.name
-            for spec, _ in zip(arg_specs[len(arg_words) :], range(len(arg_specs)))
-            if spec.required
-        ]
+        missing = [spec.name for spec in arg_specs[len(arg_words) :] if spec.required]
         if missing:
             raise ValueError(
                 f"/{command_name} missing required argument(s): {', '.join(missing)}"
