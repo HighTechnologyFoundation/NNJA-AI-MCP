@@ -1,5 +1,6 @@
 import asyncio
 import itertools
+import logging
 import signal
 from collections.abc import Awaitable, Callable
 from typing import TypedDict
@@ -15,6 +16,8 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 
 from mcp_client.handlers import GeminiQueryHandler
+
+logger = logging.getLogger(__name__)
 
 
 class LocalCommand(TypedDict):
@@ -271,8 +274,12 @@ class ChatSession:
                                     if line.strip()
                                 ]
                             )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(
+                            "Skipping list provider %s during completion refresh: %s",
+                            res.name,
+                            e,
+                        )
                 else:
                     # Add the resource name itself only if it's not a list provider
                     all_items.append((res.name, meta))
