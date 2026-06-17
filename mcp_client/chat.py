@@ -258,9 +258,11 @@ class ChatSession:
                 if is_list_provider:
                     try:
                         content = await self.mcp.read_resource(str(res.uri))
-                        item_meta = meta.rstrip("s") if meta.endswith("s") else meta
-                        if item_meta == "Resource":
-                            item_meta = "Item"
+
+                        # Items inside a list provider:
+                        #   an uncategorized provider's items are generic "Item"s
+                        #   a categorized item (e.g. "Dataset") keeps its name
+                        item_meta = "Item" if meta == "Resource" else meta
 
                         if isinstance(content, list):
                             all_items.extend([(str(i), item_meta) for i in content])
