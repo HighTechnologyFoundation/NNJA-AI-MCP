@@ -30,7 +30,7 @@ def parse_args():
         help="start an AI-powered chat with MCP server integration",
     )
 
-    # Optional flag for overriding the Gemini model
+    # Optional argument for overriding the Gemini model
     parser.add_argument(
         "--model",
         default=None,

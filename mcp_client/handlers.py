@@ -50,7 +50,7 @@ class GeminiQueryHandler:
         )
 
     async def verify_model(self) -> None:
-        """Fail fast if the configured model can't server generateContent."""
+        """Fail fast if the configured model can't serve generateContent."""
         try:
             available = [
                 m.name.removeprefix("models/")
