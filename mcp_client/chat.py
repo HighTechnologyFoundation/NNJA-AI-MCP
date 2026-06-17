@@ -148,7 +148,6 @@ class CommandAutoSuggest(AutoSuggest):
     """Provides ghost text suggestions for prompt arguments."""
 
     def __init__(self, prompts: list):
-        self.prompts = prompts
         self.prompt_dict = {prompt.name: prompt for prompt in prompts}
 
     def get_suggestion(self, buffer: Buffer, document: Document) -> Suggestion | None:
@@ -244,7 +243,6 @@ class ChatSession:
 
             # Update prompts
             self.completer.update_prompts(prompts)
-            self.autosuggester.prompts = prompts
             self.autosuggester.prompt_dict = {p.name: p for p in prompts}
 
             # Update resources and nested items from list providers
