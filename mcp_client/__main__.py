@@ -7,7 +7,7 @@ from mcp_client.mcp_client import MCPClient
 
 
 def configure_logging(verbose: bool) -> None:
-    """Send logs to stderr, surface mcp_client debug logs only when verbose."""
+    """Send logs to stderr; surface mcp_client debug logs only when verbose."""
     logging.basicConfig(
         level=logging.WARNING,
         stream=sys.stderr,

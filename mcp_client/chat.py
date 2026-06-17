@@ -149,6 +149,7 @@ class CommandAutoSuggest(AutoSuggest):
         self.prompt_dict = {prompt.name: prompt for prompt in prompts}
 
     def get_suggestion(self, buffer: Buffer, document: Document) -> Suggestion | None:
+        """Suggest the first argument name when the input is a recognized /command."""
         text = document.text
 
         if not text.startswith("/"):
@@ -168,7 +169,7 @@ class CommandAutoSuggest(AutoSuggest):
 
 
 async def _show_thinking(message: str = "Assistant is thinking") -> None:
-    """Animate a spinner until cancelled. Clears its own line on exit."""
+    """Animate a spinner until cancelled, clearing its own line on exit."""
     try:
         for frame in itertools.cycle("|/-\\"):
             print(f"\r{message}... {frame}", end="", flush=True)
@@ -180,6 +181,8 @@ async def _show_thinking(message: str = "Assistant is thinking") -> None:
 
 
 class ChatSession:
+    """Interactive terminal chat session: prompt loop, completion, and query dispatch."""
+
     def __init__(self, handler: GeminiQueryHandler) -> None:
         self.handler = handler
         self.mcp = handler.mcp
@@ -280,7 +283,7 @@ class ChatSession:
             print(f"Warning: Could not refresh completions: {e}")
 
     async def _dispatch_local(self, query: str) -> bool:
-        """Run a client-side command if `query` names one. Returns True is handled."""
+        """Run a client-side command if `query` names one. Return True if handled."""
         if not query.startswith("/"):
             return False
 
@@ -315,7 +318,7 @@ class ChatSession:
         finally:
             spinner.cancel()
             try:
-                # Let the cancellation propogate and clean up
+                # Let the cancellation propagate and clean up
                 await spinner
             except asyncio.CancelledError:
                 pass
@@ -372,4 +375,5 @@ class ChatSession:
 
 
 async def run_chat(handler: GeminiQueryHandler) -> None:
+    """Create a ChatSession for `handler` and run its interactive loop."""
     await ChatSession(handler).run()

@@ -16,7 +16,7 @@ from mcp_client.handlers import GeminiQueryHandler
 class MCPClient:
     """Terminal-based MCP client to interact with an MCP server."""
 
-    # Initializes the server executable path and an exit stack
+    # Store the target (server script path or URL) and set up an exit stack
     def __init__(self, target: str):
         self.target = target
         self.use_http = target.startswith(("http://", "https://"))
@@ -26,16 +26,21 @@ class MCPClient:
         self.exit_stack = AsyncExitStack()
 
     async def __aenter__(self) -> Self:
-        """Establishes the server connection when entering `async with`."""
+        """Establish the server connection when entering `async with`."""
         self.client_session = await self._connect_to_server()
         return self
 
     async def __aexit__(self, *_) -> None:
-        """Cleans up the server connection and exit stack upon exit."""
+        """Clean up the server connection and exit stack upon exit."""
         await self.exit_stack.aclose()
 
     async def _connect_to_server(self) -> ClientSession:
-        """Spawns the MCP server as a subprocess and initializes the MCP ClientSession."""
+        """Connect to the MCP server and initialize the MCP ClientSession.
+
+        The server connection is handled depending on the mode:
+            - In stdio mode, it spawns the MCP server as a subprocess.
+            - In HTTP mode, it attaches to an already-running server.
+        """
         if not self.use_http and not pathlib.Path(self.target).exists():
             if re.match(r"[\w.\-]+:\d+", self.target):
                 raise RuntimeError(
@@ -90,7 +95,7 @@ class MCPClient:
         section: str,
         list_method: Callable[[], Awaitable[Any]],
     ) -> None:
-        """Helper to fetch and print details for a specific section (tools/prompts/resources)"""
+        """Fetch and print details for a specific section (tools/prompts/resources)."""
         try:
             items = getattr(await list_method(), section)
             if items:
@@ -105,7 +110,7 @@ class MCPClient:
             print(f"\n{section.upper()}: Error - {e}")
 
     async def run_chat(self, model: str | None = None) -> None:
-        """Initializes the query handler and launches the interactive chat UI."""
+        """Initialize the query handler and launch the interactive chat UI."""
         try:
             mcp = MCPGateway(self.client_session)
             handler = GeminiQueryHandler(mcp, model=model)
