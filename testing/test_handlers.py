@@ -4,7 +4,9 @@
 `_process_command` are exercised against a stub gateway with no Gemini client at all.
 """
 
+import logging
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from _fakes import bare_handler, prompt, resource, stub_gateway, sync, text_message
@@ -115,3 +117,40 @@ async def test_process_command_bad_quotes_raises():
 
     with pytest.raises(ValueError, match="check your quotes"):
         await handler._process_command('/cite "unterminated')
+
+
+# process_query response handling
+
+
+@sync
+async def test_process_query_returns_text_when_present():
+    handler = bare_handler(stub_gateway())
+    handler.chat = SimpleNamespace(
+        send_message=AsyncMock(return_value=SimpleNamespace(text="the answer"))
+    )
+
+    assert await handler.process_query("hello") == "Assistant: the answer"
+
+
+@sync
+async def test_process_query_empty_response_surfaces_finish_reason(caplog):
+    handler = bare_handler(stub_gateway())
+    response = SimpleNamespace(
+        text="", candidates=[SimpleNamespace(finish_reason="SAFETY")]
+    )
+    handler.chat = SimpleNamespace(send_message=AsyncMock(return_value=response))
+
+    with caplog.at_level(logging.DEBUG, logger="mcp_client.handlers"):
+        result = await handler.process_query("hello")
+
+    assert result == "Assistant: (no response - SAFETY)"
+    assert any("SAFETY" in r.getMessage() for r in caplog.records)  # cause is logged
+
+
+@sync
+async def test_process_query_empty_response_without_candidates():
+    handler = bare_handler(stub_gateway())
+    response = SimpleNamespace(text="", candidates=[])
+    handler.chat = SimpleNamespace(send_message=AsyncMock(return_value=response))
+
+    assert await handler.process_query("hello") == "Assistant: (no response)"

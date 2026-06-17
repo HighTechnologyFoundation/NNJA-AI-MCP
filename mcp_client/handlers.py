@@ -186,6 +186,10 @@ class GeminiQueryHandler:
         response = await self.chat.send_message(query)
 
         if not response.text:
-            return "Assistant: (no response)"
+            reason = None
+            if response.candidates:
+                reason = response.candidates[0].finish_reason
+            logger.debug("No text (finish_reason=%s): %s", reason, response)
+            return f"Assistant: (no response{f' - {reason}' if reason else ''})"
 
         return "Assistant: " + response.text
