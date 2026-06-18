@@ -73,7 +73,7 @@ class GeminiQueryHandler:
 
     async def _extract_resources(self, query: str) -> str:
         """Extract resource mentions from query and fetch their content."""
-        mentions = [word[1:] for word in query.split() if word.startswith("@")]
+        mentions = {word[1:] for word in query.split() if word.startswith("@")}
         if not mentions:
             return ""
 
@@ -86,13 +86,17 @@ class GeminiQueryHandler:
                 try:
                     content = await self.mcp.read_resource(str(resource.uri))
                     mentioned_docs.append((resource.name, str(content)))
+                    mentions.discard(resource.name)
+                    mentions.discard(str(resource.uri))
                 except Exception as e:
                     logger.warning("Error reading resource %s: %s", resource.name, e)
 
-            # Special handling for dataset list provider
-            if "datasets" in resource.name.lower():
+        # If mentions are left, see if they're in the datasets list
+        if mentions:
+            ds_res = next((r for r in resources if "datasets" in r.name.lower()), None)
+            if ds_res:
                 try:
-                    items = await self.mcp.read_resource(str(resource.uri))
+                    items = await self.mcp.read_resource(str(ds_res.uri))
                     if isinstance(items, list):
                         for item in items:
                             if str(item) in mentions:
