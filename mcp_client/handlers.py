@@ -161,6 +161,7 @@ class GeminiQueryHandler:
 
     async def process_query(self, query: str) -> str:
         """Process a query using Gemini and available MCP tools."""
+        original_query = query
 
         # Process a /prompt command if present
         if query.startswith("/"):
@@ -171,8 +172,8 @@ class GeminiQueryHandler:
             if command_text is not None:
                 query = f"Execute this prompt:\n{command_text}"
 
-        # Inject context from @resource mentions
-        added_resources = await self._extract_resources(query)
+        # Inject context from @resource mentions in the original query
+        added_resources = await self._extract_resources(original_query)
         if added_resources:
             query = (
                 "The following context may be useful:\n"
