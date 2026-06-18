@@ -168,6 +168,20 @@ def dataset_info(dataset: str) -> str:
         return f"Error: {e}"
 
 
+@mcp.resource("data://variable-aliases", mime_type="application/json")
+def variable_aliases() -> dict[str, dict[str, str]]:
+    """Get the mapping of common variable names to dataset-specific IDs.
+
+    Lets a caller translate a plain-English variable name (e.g. "temperature")
+    into the ID a given dataset uses, so the data tools get valid variable names.
+
+    Returns:
+        dict[str, dict[str, str]]: {variable_name: {dataset_name: variable_id}};
+            a "DEFAULT" dataset key holds an ID used when a dataset has no entry.
+    """
+    return VARIABLE_ALIASES
+
+
 @mcp.tool()
 def variables_info(dataset: str) -> str:
     """Get a list of variables and their descriptions from the requested dataset.
