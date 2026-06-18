@@ -154,3 +154,34 @@ async def test_process_query_empty_response_without_candidates():
     handler.chat = SimpleNamespace(send_message=AsyncMock(return_value=response))
 
     assert await handler.process_query("hello") == "Assistant: (no response)"
+
+
+# process_query /command + @mention interaction
+
+
+@sync
+async def test_command_path_extracts_from_original_not_expanded_prompt():
+    # The expanded prompt body carries a stray "@" (an email); the user's real
+    # mention is @ADPSFC in their original input. Extraction must see the original,
+    # not the rewritten prompt text.
+    gw = stub_gateway(
+        prompts=[prompt("cite", [("dataset", True)])],
+        messages=[text_message("user", "Cite contact@example.com")],
+    )
+    handler = bare_handler(gw)
+    handler.chat = SimpleNamespace(
+        send_message=AsyncMock(return_value=SimpleNamespace(text="ok", candidates=[]))
+    )
+
+    seen = {}
+
+    async def spy(q):
+        seen["query"] = q
+        return ""
+
+    handler._extract_resources = spy
+
+    await handler.process_query("/cite @ADPSFC")
+
+    assert "@ADPSFC" in seen["query"]  # the user's mention reaches extraction
+    assert "example.com" not in seen["query"]  # the prompt body's stray "@" does not
