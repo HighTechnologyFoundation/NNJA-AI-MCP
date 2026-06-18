@@ -57,8 +57,8 @@ async def catalog_lifespan(server: FastMCP):
 mcp = FastMCP("NNJA-AI-MCP", lifespan=catalog_lifespan)
 
 
-# Virtual Variable Registry for semantic mapping across datasets
-VIRTUAL_VARIABLE_REGISTRY = {
+# Common variable aliases for semantic mapping across datasets
+VARIABLE_ALIASES = {
     "temperature": {
         "conv-adpsfc-NC000001": "TMPSQ1.TMDB",
         "conv-adpsfc-NC000002": "TMPSQ1.TMDB",
@@ -184,14 +184,14 @@ def variables_info(dataset: str) -> str:
     except ValueError as e:
         return f"Error: {e}"
 
-    # Add info about virtual variables
-    virtual_vars = []
-    for v, mapping in VIRTUAL_VARIABLE_REGISTRY.items():
+    # Add info about variable aliases
+    var_aliases = []
+    for v, mapping in VARIABLE_ALIASES.items():
         if chosen_dataset.name in mapping or "DEFAULT" in mapping:
-            virtual_vars.append(v)
+            var_aliases.append(v)
 
-    if virtual_vars:
-        vars_str += f"\n\nNote: You can also use the following common variable names: {', '.join(virtual_vars)}"
+    if var_aliases:
+        vars_str += f"\n\nNote: You can also use the following common variable names: {', '.join(var_aliases)}"
 
     return vars_str
 
@@ -593,7 +593,7 @@ def compare_datasets(
     Args:
         datasets (list[str]): List of dataset names to compare.
         time (str): The time of interest (YYYY-MM-DD).
-        variables (list[str]): Variables to compare (uses virtual mapping).
+        variables (list[str]): List of variables to compare.
         rows (int, optional): The number of rows of data to use for analysis. Defaults to None (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
@@ -797,11 +797,11 @@ def _fuzzy_variable_search(
 
     for var in var_list:
         var_lower = var.lower()
-        if var_lower in VIRTUAL_VARIABLE_REGISTRY:
-            if dataset.name in VIRTUAL_VARIABLE_REGISTRY[var_lower]:
-                result[var] = VIRTUAL_VARIABLE_REGISTRY[var_lower][dataset.name]
-            elif "DEFAULT" in VIRTUAL_VARIABLE_REGISTRY[var_lower]:
-                result[var] = VIRTUAL_VARIABLE_REGISTRY[var_lower]["DEFAULT"]
+        if var_lower in VARIABLE_ALIASES:
+            if dataset.name in VARIABLE_ALIASES[var_lower]:
+                result[var] = VARIABLE_ALIASES[var_lower][dataset.name]
+            elif "DEFAULT" in VARIABLE_ALIASES[var_lower]:
+                result[var] = VARIABLE_ALIASES[var_lower]["DEFAULT"]
             else:
                 remaining_vars.append(var)
         else:
