@@ -43,3 +43,6 @@ include = ["mcp_client*"] # Only include the mcp_client in the installation
 
 [tool.ruff.lint]
 extend-select = ["I"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."] # make root-level modules (e.g. server.py) importable in tests
