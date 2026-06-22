@@ -59,6 +59,11 @@ mcp = FastMCP("NNJA-AI-MCP", lifespan=catalog_lifespan)
 
 # Common variable aliases for semantic mapping across datasets
 VARIABLE_ALIASES = {
+    "brightness_temperature": {
+        "amsua-1bamua-NC021023": "BRITCSTC.TMBR_00001",
+        "atms-atms-NC021203": "BRITCSTC.TMBR_00001",
+        "mhs-1bmhs-NC021027": "BRITCSTC.TMBR_00001",
+    },
     "temperature": {
         "conv-adpsfc-NC000001": "TMPSQ1.TMDB",
         "conv-adpsfc-NC000002": "TMPSQ1.TMDB",
