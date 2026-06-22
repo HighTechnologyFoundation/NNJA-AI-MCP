@@ -810,7 +810,7 @@ def _fuzzy_variable_search(
     remaining_vars = []
 
     for var in var_list:
-        var_lower = var.lower()
+        var_lower = var.lower().replace(" ", "_")
         if var_lower in VARIABLE_ALIASES:
             if dataset.name in VARIABLE_ALIASES[var_lower]:
                 result[var] = VARIABLE_ALIASES[var_lower][dataset.name]
