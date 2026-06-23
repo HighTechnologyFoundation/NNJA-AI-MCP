@@ -201,7 +201,7 @@ class ChatSession:
     ) -> None:
         self.handler = handler
         self.mcp = handler.mcp
-        self.console = Console()
+        self.console = Console(highlight=False)
         self.completer = UnifiedCompleter()
         self.autosuggester = CommandAutoSuggest([])
         self.local_commands: dict[str, LocalCommand] = {
