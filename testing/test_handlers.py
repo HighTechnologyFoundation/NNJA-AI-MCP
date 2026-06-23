@@ -129,7 +129,7 @@ async def test_process_query_returns_text_when_present():
         send_message=AsyncMock(return_value=SimpleNamespace(text="the answer"))
     )
 
-    assert await handler.process_query("hello") == "Assistant: the answer"
+    assert await handler.process_query("hello") == "the answer"
 
 
 @sync
@@ -143,7 +143,7 @@ async def test_process_query_empty_response_surfaces_finish_reason(caplog):
     with caplog.at_level(logging.DEBUG, logger="mcp_client.handlers"):
         result = await handler.process_query("hello")
 
-    assert result == "Assistant: (no response - SAFETY)"
+    assert result == "(no response - SAFETY)"
     assert any("SAFETY" in r.getMessage() for r in caplog.records)  # cause is logged
 
 
@@ -153,7 +153,7 @@ async def test_process_query_empty_response_without_candidates():
     response = SimpleNamespace(text="", candidates=[])
     handler.chat = SimpleNamespace(send_message=AsyncMock(return_value=response))
 
-    assert await handler.process_query("hello") == "Assistant: (no response)"
+    assert await handler.process_query("hello") == "(no response)"
 
 
 # process_query /command + @mention interaction

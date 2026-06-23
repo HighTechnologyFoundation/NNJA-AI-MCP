@@ -191,6 +191,6 @@ class GeminiQueryHandler:
             if response.candidates:
                 reason = response.candidates[0].finish_reason
             logger.debug("No text (finish_reason=%s): %s", reason, response)
-            return f"Assistant: (no response{f' - {reason}' if reason else ''})"
+            return f"(no response{f' - {reason}' if reason else ''})"
 
-        return "Assistant: " + response.text
+        return response.text

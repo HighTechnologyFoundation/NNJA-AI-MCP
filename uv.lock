@@ -1479,6 +1479,7 @@ client = [
     { name = "matplotlib" },
     { name = "prompt-toolkit" },
     { name = "pyqt6" },
+    { name = "rich" },
 ]
 dev = [
     { name = "pytest" },
@@ -1502,6 +1503,7 @@ client = [
     { name = "matplotlib", specifier = ">=3.10.7" },
     { name = "prompt-toolkit", specifier = ">=3.0.52" },
     { name = "pyqt6", specifier = ">=6.9.1" },
+    { name = "rich", specifier = ">=15.0.0" },
 ]
 dev = [
     { name = "pytest", specifier = ">=9.0.3" },

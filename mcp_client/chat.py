@@ -14,6 +14,8 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
+from rich.console import Console
+from rich.markdown import Markdown
 
 from mcp_client.handlers import GeminiQueryHandler
 
@@ -199,6 +201,7 @@ class ChatSession:
     ) -> None:
         self.handler = handler
         self.mcp = handler.mcp
+        self.console = Console()
         self.completer = UnifiedCompleter()
         self.autosuggester = CommandAutoSuggest([])
         self.local_commands: dict[str, LocalCommand] = {
@@ -323,9 +326,16 @@ class ChatSession:
         previous = signal.signal(signal.SIGINT, _cancel_on_sigint)
 
         try:
-            print("\n" + await task)
+            result = await task
+            if result.startswith("Error:"):
+                self.console.print(f"\n{result}", style="bold red")
+            else:
+                self.console.print("\nAssistant:", style="bold cyan")
+                self.console.print(Markdown(result))
         except asyncio.CancelledError:
-            print("\n(cancelled - 'quit', 'q', or Ctrl-D to exit)")
+            self.console.print(
+                "\n(cancelled - 'quit', 'q', or Ctrl-D to exit)", style="dim"
+            )
         finally:
             signal.signal(signal.SIGINT, previous)  # restore for the idle prompt
 

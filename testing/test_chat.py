@@ -15,6 +15,7 @@ import io
 import signal
 from contextlib import redirect_stdout
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
 from _fakes import sync
@@ -34,9 +35,12 @@ async def test_ctrl_c_cancels_query_and_restores_handler():
     async def quiet_spinner(*_args, **_kwargs):
         await asyncio.sleep(3600)  # silent, cancellable stand-in for the spinner
 
-    session = ChatSession.__new__(ChatSession)  # skip prompt_toolkit setup
-    session.handler = SimpleNamespace(process_query=blocking_query)
-    session.pause_spinner = None  # __init__ is bypassed, so set what _run_query reads
+    # Build a real session so every attribute __init__ sets is present, stubbing only
+    # _build_session — the lone piece that needs a terminal. Avoids re-breaking when
+    # __init__ gains new attributes (e.g. pause_spinner, console).
+    handler: Any = SimpleNamespace(process_query=blocking_query, mcp=None)
+    with patch.object(ChatSession, "_build_session", lambda _self: None):
+        session = ChatSession(handler)
 
     original = signal.getsignal(signal.SIGINT)
     captured = io.StringIO()
