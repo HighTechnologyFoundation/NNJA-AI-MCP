@@ -8,6 +8,9 @@ with no server, no catalog, and no network — only a fake dataset with a `.name
 from types import SimpleNamespace
 from typing import Any
 
+import pandas as pd
+import pytest
+from _fakes import sync
 from nnja_ai.exceptions import EmptyTimeSubsetError
 
 import server
@@ -60,3 +63,69 @@ def test_alias_lookup_normalizes_spaces():
     result = server._fuzzy_variable_search(dataset, ["wind speed"])
 
     assert result == {"wind speed": "WNDSQ1.WSPD"}
+
+
+def _fake_ctx(*, supports: bool, action: str = "accept") -> Any:
+    """A minimal Context stand-in: a capability check plus an async elicit."""
+
+    async def elicit(_message, **_kwargs):
+        return SimpleNamespace(action=action)
+
+    session = SimpleNamespace(check_client_capability=lambda _capability: supports)
+    return SimpleNamespace(session=session, elicit=elicit)
+
+
+@sync
+async def test_large_load_gate_skips_without_elicitation_support(monkeypatch):
+    # No elicitation capability -> short-circuit before estimating or prompting.
+    calls = []
+    monkeypatch.setattr(
+        server, "_estimate_query_mb", lambda *a: calls.append(a) or (10_000.0, 50)
+    )
+    ctx = _fake_ctx(supports=False, action="decline")  # would raise if it prompted
+
+    await server._confirm_large_load(ctx, ["ds"], "2021-01-01", None)
+
+    assert calls == []
+
+
+@sync
+async def test_large_load_gate_allows_small_query(monkeypatch):
+    # Below the threshold, the gate never prompts (so a "decline" ctx wouldn't matter).
+    monkeypatch.setattr(server, "_estimate_query_mb", lambda *a: (10.0, 1))
+    ctx = _fake_ctx(supports=True, action="decline")
+
+    await server._confirm_large_load(ctx, ["ds"], "2021-01-01", None)  # no raise
+
+
+@sync
+async def test_large_load_gate_raises_on_decline(monkeypatch):
+    monkeypatch.setattr(server, "_estimate_query_mb", lambda *a: (10_000.0, 50))
+    ctx = _fake_ctx(supports=True, action="decline")
+
+    with pytest.raises(ValueError, match="cancelled"):
+        await server._confirm_large_load(ctx, ["ds"], "2021-01-01", None)
+
+
+@sync
+async def test_large_load_gate_proceeds_on_accept(monkeypatch):
+    monkeypatch.setattr(server, "_estimate_query_mb", lambda *a: (10_000.0, 50))
+    ctx = _fake_ctx(supports=True, action="accept")
+
+    await server._confirm_large_load(ctx, ["ds"], "2021-01-01", None)  # no raise
+
+
+@sync
+async def test_load_data_sample_awaits_gated_access(monkeypatch):
+    # The async tool must thread ctx through _gated_access and return its data as JSON.
+    df = pd.DataFrame({"LAT": [1.5], "LON": [2.5]})
+
+    async def fake_gated(_ctx, *args, **kwargs):
+        return server.DatasetResult(data=df, var_mapping={})
+
+    monkeypatch.setattr(server, "_gated_access", fake_gated)
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.load_data_sample("ds", "2021-01-01", ["latitude"], ctx=ctx)
+
+    assert '"LAT":1.5' in result
