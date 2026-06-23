@@ -13,9 +13,10 @@ from typing import Any, Literal, NamedTuple
 
 import numpy as np
 import pandas as pd
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from fastmcp.server.lifespan import lifespan
 from fuzzywuzzy import process
+from mcp.types import ClientCapabilities, ElicitationCapability
 from nnja_ai import DataCatalog, NNJADataset
 from nnja_ai.exceptions import EmptyTimeSubsetError
 from scipy import stats
@@ -56,6 +57,10 @@ async def catalog_lifespan(server: FastMCP):
 
 
 mcp = FastMCP("NNJA-AI-MCP", lifespan=catalog_lifespan)
+
+# Above this size (MB, estimated from the partition manifest before any data is
+# fetched), a data-loading tool asks the user to confirm. Tunable for the environment.
+LARGE_QUERY_MB = 500.0
 
 
 # Common variable aliases for semantic mapping across datasets
@@ -217,7 +222,7 @@ def variables_info(dataset: str) -> str:
 
 
 @mcp.tool()
-def load_data_sample(
+async def load_data_sample(
     dataset: str,
     time: str,
     variables: list[str],
@@ -225,6 +230,8 @@ def load_data_sample(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
+    *,
+    ctx: Context,
 ) -> str:
     """Load a sample of the requested dataset into a JSON string, sliced down to the subset of interest.
 
@@ -243,8 +250,10 @@ def load_data_sample(
         str: A JSON string that can be easily converted to a pandas DataFrame of the loaded dataset, filtered down to the subset of interest.
     """
     try:
-        df = _access_dataset(
-            dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
+        df = (
+            await _gated_access(
+                ctx, dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
+            )
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -258,7 +267,7 @@ def load_data_sample(
 
 
 @mcp.tool()
-def descriptive_stats_dataset(
+async def descriptive_stats_dataset(
     dataset: str,
     time: str,
     variables: list[str],
@@ -266,6 +275,8 @@ def descriptive_stats_dataset(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
+    *,
+    ctx: Context,
 ) -> str:
     """Analyze the columns wanted from the requested dataset and return the descriptive statistics as a JSON string, sliced down to the subset of interest.
 
@@ -282,8 +293,10 @@ def descriptive_stats_dataset(
         str: A JSON string that can be easily converted to a pandas DataFrame of the descriptive statistics of the loaded dataset, filtered down to the subset of interest.
     """
     try:
-        df = _access_dataset(
-            dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
+        df = (
+            await _gated_access(
+                ctx, dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
+            )
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -297,7 +310,7 @@ def descriptive_stats_dataset(
 
 
 @mcp.tool()
-def correlation_matrix_dataset(
+async def correlation_matrix_dataset(
     dataset: str,
     time: str,
     variables: list[str],
@@ -306,6 +319,8 @@ def correlation_matrix_dataset(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
+    *,
+    ctx: Context,
 ) -> str:
     """Analyze the columns wanted from the requested dataset and return the correlation matrix as a JSON string, sliced down to the subset of interest.
 
@@ -323,8 +338,10 @@ def correlation_matrix_dataset(
         str: A JSON string that can be easily converted to a pandas DataFrame of the correlation matrix of the loaded dataset, filtered down to the subset of interest.
     """
     try:
-        df = _access_dataset(
-            dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
+        df = (
+            await _gated_access(
+                ctx, dataset, time, variables, rows, lat_bounds, lon_bounds, end_time
+            )
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -342,7 +359,7 @@ def correlation_matrix_dataset(
 
 
 @mcp.tool()
-def calculate_trend(
+async def calculate_trend(
     dataset: str,
     start_time: str,
     end_time: str,
@@ -350,6 +367,8 @@ def calculate_trend(
     rows: int | None = None,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
+    *,
+    ctx: Context,
 ) -> str:
     """Calculate the linear trend for a specific variable over a time range.
 
@@ -369,14 +388,17 @@ def calculate_trend(
     """
 
     try:
-        df = _access_dataset(
-            dataset,
-            start_time,
-            [variable, "OBS_DATE"],
-            rows,
-            lat_bounds,
-            lon_bounds,
-            end_time,
+        df = (
+            await _gated_access(
+                ctx,
+                dataset,
+                start_time,
+                [variable, "OBS_DATE"],
+                rows,
+                lat_bounds,
+                lon_bounds,
+                end_time,
+            )
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -415,7 +437,7 @@ def calculate_trend(
 
 
 @mcp.tool()
-def calculate_spectral_index(
+async def calculate_spectral_index(
     dataset: str,
     time: str,
     index_name: Literal["wildfire_risk", "cloud_cooling"],
@@ -423,6 +445,8 @@ def calculate_spectral_index(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
+    *,
+    ctx: Context,
 ) -> str:
     """Calculate a domain-specific spectral index for satellite data.
 
@@ -474,8 +498,10 @@ def calculate_spectral_index(
         load_vars += ["MSG_DATE", "longitude"]
 
     try:
-        df = _access_dataset(
-            dataset, time, load_vars, rows, lat_bounds, lon_bounds, end_time
+        df = (
+            await _gated_access(
+                ctx, dataset, time, load_vars, rows, lat_bounds, lon_bounds, end_time
+            )
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -498,7 +524,7 @@ def calculate_spectral_index(
 
 
 @mcp.tool()
-def calculate_lapse_rate(
+async def calculate_lapse_rate(
     time: str,
     rows: int | None = None,
     lat_bounds: list[float] | None = None,
@@ -506,6 +532,8 @@ def calculate_lapse_rate(
     level1_hpa: int = 1000,
     level2_hpa: int = 500,
     end_time: str | None = None,
+    *,
+    ctx: Context,
 ) -> str:
     """Calculate the lapse rate between two pressure levels using ADPUPA (Upper-Air) data.
     Lapse rate is calculated as - (T2 - T1) / (Z2 - Z1) in K/km.
@@ -541,8 +569,17 @@ def calculate_lapse_rate(
     required_vars = [t1_var, t2_var, z1_var, z2_var]
 
     try:
-        df = _access_dataset(
-            dataset, time, required_vars, rows, lat_bounds, lon_bounds, end_time
+        df = (
+            await _gated_access(
+                ctx,
+                dataset,
+                time,
+                required_vars,
+                rows,
+                lat_bounds,
+                lon_bounds,
+                end_time,
+            )
         ).data
     except ValueError as e:
         return f"Error: {e}"
@@ -598,7 +635,7 @@ def calculate_lapse_rate(
 
 
 @mcp.tool()
-def compare_datasets(
+async def compare_datasets(
     datasets: list[str],
     time: str,
     variables: list[str],
@@ -606,6 +643,8 @@ def compare_datasets(
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     end_time: str | None = None,
+    *,
+    ctx: Context,
 ) -> str:
     """Compare multiple datasets by aligning them spatially for a given day.
     Calculates the regional mean for the requested variables across all specified datasets.
@@ -660,10 +699,123 @@ def compare_datasets(
             # ValueErrors are recorded per-dataset so the LLM sees partial results
             return {"error": str(e)}
 
-    with ThreadPoolExecutor(max_workers=min(8, len(datasets) or 1)) as pool:
-        all_results = pool.map(_load_one, datasets)
+    # Confirm once on the combined estimate before fetching any of the datasets.
+    try:
+        await _confirm_large_load(ctx, datasets, time, end_time)
+    except ValueError as e:
+        return f"Error: {e}"
 
-    return json.dumps(dict(zip(datasets, all_results)))
+    def _run_pool() -> dict[str, Any]:
+        with ThreadPoolExecutor(max_workers=min(8, len(datasets) or 1)) as pool:
+            results = list(pool.map(_load_one, datasets))
+        return dict(zip(datasets, results))
+
+    # Run the blocking thread-pool loads off the event loop.
+    return json.dumps(await asyncio.to_thread(_run_pool))
+
+
+def _client_supports_elicitation(ctx: Context) -> bool:
+    """Return whether the connected client advertised support for elicitation."""
+    return ctx.session.check_client_capability(
+        ClientCapabilities(elicitation=ElicitationCapability())
+    )
+
+
+def _estimate_query_mb(
+    datasets: list[str], time: str, end_time: str | None
+) -> tuple[float, int]:
+    """Estimate the on-disk size (MB) and file count a query would read.
+
+    Reads only the in-memory partition manifest (no data is fetched), summed across
+    the given datasets for the requested time range.
+
+    Args:
+        datasets (list[str]): Dataset names to estimate.
+        time (str): Start date (YYYY-MM-DD).
+        end_time (str | None): End date for a range, or None for a single day.
+
+    Returns:
+        tuple[float, int]: Total size in MB and total number of partition files.
+    """
+    total_mb = 0.0
+    total_files = 0
+    time_sel = slice(time, end_time) if end_time else time
+    for ds in datasets:
+        manifest = _resolve_dataset(ds).sel(time=time_sel).manifest
+        total_mb += float(manifest["size_in_mb"].sum())
+        total_files += len(manifest)
+    return total_mb, total_files
+
+
+async def _confirm_large_load(
+    ctx: Context, datasets: list[str], time: str, end_time: str | None
+) -> None:
+    """Ask the user to confirm before a query that would load a lot of data.
+
+    Best-effort and purely additive: it no-ops when the client cannot be asked
+    (tests, HTTP, headless) or when the size cannot be estimated, letting
+    `_access_dataset` validate inputs and raise its own errors. Only an explicit
+    decline raises, which the calling tool turns into a friendly "Error: ..." string.
+
+    Args:
+        ctx (Context): The tool call context, used to reach the client session.
+        datasets (list[str]): Dataset names the query will load.
+        time (str): Start date (YYYY-MM-DD).
+        end_time (str | None): End date for a range, or None for a single day.
+
+    Raises:
+        ValueError: If the user declines (or cancels) the confirmation.
+    """
+    if not _client_supports_elicitation(ctx):
+        return
+    try:
+        total_mb, n_files = _estimate_query_mb(datasets, time, end_time)
+    except Exception:
+        # Never block on an estimation failure; let _access_dataset validate the input.
+        return
+    if total_mb < LARGE_QUERY_MB:
+        return
+
+    label = datasets[0] if len(datasets) == 1 else f"{len(datasets)} datasets"
+    # response_type=None is the content-less "confirm" form: the accept/decline action
+    # carries the answer, which is all the client's y/N handler returns.
+    result = await ctx.elicit(
+        f"Loading {label} for this time range will read about {total_mb:.0f} MB "
+        f"across {n_files} file(s) and may be slow.",
+        response_type=None,
+    )
+    if result.action != "accept":
+        raise ValueError(
+            "Large query cancelled. Narrow the time range to reduce how much data is loaded."
+        )
+
+
+async def _gated_access(
+    ctx: Context,
+    dataset: str,
+    time: str,
+    variables: list[str],
+    rows: int | None = None,
+    lat_bounds: list[float] | None = None,
+    lon_bounds: list[float] | None = None,
+    end_time: str | None = None,
+) -> DatasetResult:
+    """Confirm an oversized load if needed, then run the blocking access off-thread.
+
+    Wraps `_access_dataset` so tools get the elicitation gate and keep the event loop
+    free during the (blocking) network read.
+    """
+    await _confirm_large_load(ctx, [dataset], time, end_time)
+    return await asyncio.to_thread(
+        _access_dataset,
+        dataset,
+        time,
+        variables,
+        rows,
+        lat_bounds,
+        lon_bounds,
+        end_time,
+    )
 
 
 # Internal function for accessing a dataset
