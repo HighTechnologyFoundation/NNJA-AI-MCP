@@ -1,6 +1,7 @@
 import asyncio
 import pathlib
 import re
+import signal
 import sys
 from contextlib import AsyncExitStack
 from typing import Any, Awaitable, Callable, Self
@@ -94,6 +95,9 @@ class MCPClient:
 
         The server pauses its tool call to ask the human before proceeding; "y"/"yes"
         accepts and lets the work run, anything else declines so the server can abort.
+        Ctrl-C / Ctrl-D cancels the whole turn (like Ctrl-C during a running query) and
+        returns a "cancel" response; without catching it here the KeyboardInterrupt
+        would crash the session's receive loop this callback runs on.
         """
         self._elicitation_active.set()
 
@@ -108,6 +112,13 @@ class MCPClient:
         try:
             with patch_stdout():
                 answer = await PromptSession().prompt_async(prompt)
+        except (KeyboardInterrupt, EOFError):
+            # Cancel the whole turn, like Ctrl-C during a running query: re-raise SIGINT
+            # so _respond's handler cancels the query task (prompt_toolkit restores that
+            # handler before raising here). Still return a response so the server, which
+            # is awaiting this elicitation, isn't left hanging.
+            signal.raise_signal(signal.SIGINT)
+            return types.ElicitResult(action="cancel")
         finally:
             self._elicitation_active.clear()
 
