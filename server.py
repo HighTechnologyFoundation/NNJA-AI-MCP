@@ -17,6 +17,7 @@ from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
 from fuzzywuzzy import process
 from nnja_ai import DataCatalog, NNJADataset
+from nnja_ai.exceptions import EmptyTimeSubsetError
 from scipy import stats
 
 # Set up logging to communicate startup time
@@ -755,11 +756,18 @@ def _access_dataset(
 
     # Redirect any NNJA-AI stdout output to stderr (prevent MCP protocol corruption)
     with contextlib.redirect_stdout(sys.stderr):
-        # Filter the valid dataset down to only the subset of interest
-        filtered_dataset = chosen_dataset.sel(time=time_sel, variables=valid_vars)
+        try:
+            # Filter the valid dataset down to only the subset of interest
+            filtered_dataset = chosen_dataset.sel(time=time_sel, variables=valid_vars)
 
-        # Load the chosen dataset into a pandas DataFrame
-        df = filtered_dataset.load_dataset(backend="pandas")
+            # Load the chosen dataset into a pandas DataFrame
+            df = filtered_dataset.load_dataset(backend="pandas")
+        except EmptyTimeSubsetError:
+            # No partitions matched the requested time(s). Treat this as an empty
+            # result so callers return the friendly, recoverable "No data found"
+            # message (letting the LLM retry a different time) rather than leaking
+            # a hard tool error to the client.
+            return DatasetResult(data=pd.DataFrame(), var_mapping=var_mapping)
 
     # Spatial filtering
     if lat_bounds:
