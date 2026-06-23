@@ -4,9 +4,12 @@ import sys
 from contextlib import AsyncExitStack
 from typing import Any, Awaitable, Callable, Self
 
+import mcp.types as types
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
+from prompt_toolkit import PromptSession
+from prompt_toolkit.patch_stdout import patch_stdout
 
 from mcp_client import chat
 from mcp_client.gateway import MCPGateway
@@ -64,9 +67,13 @@ class MCPClient:
                     )
                 )
 
-            # Create the MCP session over the chosen stream
+            # Create the MCP session over the chosen stream. Supplying an elicitation
+            # callback both handles server elicitation requests and advertises the
+            # elicitation capability during the initialization handshake.
             client_session = await self.exit_stack.enter_async_context(
-                ClientSession(read, write)
+                ClientSession(
+                    read, write, elicitation_callback=self._handle_elicitation
+                )
             )
 
             # Perform MCP initialization handshake
@@ -74,6 +81,22 @@ class MCPClient:
             return client_session
         except Exception as e:
             raise RuntimeError(f"Failed to connect to MCP server: {e}") from e
+
+    async def _handle_elicitation(
+        self, context: Any, params: types.ElicitRequestParams
+    ) -> types.ElicitResult:
+        """Confirm a server-initiated elicitation (e.g. an oversized data load).
+
+        The server pauses its tool call to ask the human before proceeding; "y"/"yes"
+        accepts and lets the work run, anything else declines so the server can abort.
+        """
+        with patch_stdout():
+            answer = await PromptSession().prompt_async(
+                f"\nWARNING: {params.message}\nProceed? [y/N] "
+            )
+        if answer.strip().lower() in {"y", "yes"}:
+            return types.ElicitResult(action="accept")
+        return types.ElicitResult(action="decline")
 
     async def list_all_members(self) -> None:
         """List all server-side tools, prompts, and resources."""
