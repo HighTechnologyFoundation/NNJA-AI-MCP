@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+import signal
 import sys
 from types import SimpleNamespace
 
@@ -36,10 +37,13 @@ def test_configure_logging_toggles_mcp_client_debug():
 
 
 def _client_answering(monkeypatch, answer):
-    """An MCPClient whose elicitation prompt returns `answer`, with no real terminal."""
+    """An MCPClient whose elicitation prompt returns `answer` (or raises it, if it is an
+    exception, to simulate Ctrl-C/Ctrl-D), with no real terminal."""
 
     class FakePromptSession:
         async def prompt_async(self, _message):
+            if isinstance(answer, BaseException):
+                raise answer
             return answer
 
     monkeypatch.setattr("mcp_client.mcp_client.PromptSession", FakePromptSession)
@@ -67,3 +71,21 @@ async def test_elicitation_declines_on_anything_else(monkeypatch):
     result = await client._handle_elicitation(None, params)
 
     assert result.action == "decline"
+
+
+@sync
+async def test_elicitation_cancels_on_interrupt(monkeypatch):
+    # Ctrl-C at the prompt must return "cancel" (not crash the receive loop), clear the
+    # spinner-pause flag, and re-raise SIGINT so the query's handler cancels the turn.
+    # raise_signal is stubbed: with no query SIGINT handler installed here, a real one
+    # would hit the default handler and abort the test.
+    raised = []
+    monkeypatch.setattr(signal, "raise_signal", raised.append)
+    client = _client_answering(monkeypatch, KeyboardInterrupt())
+    params = SimpleNamespace(message="This will load ~3 GB. Proceed?")
+
+    result = await client._handle_elicitation(None, params)
+
+    assert result.action == "cancel"
+    assert not client._elicitation_active.is_set()
+    assert raised == [signal.SIGINT]
