@@ -10,6 +10,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.patch_stdout import patch_stdout
 
 from mcp_client import chat
@@ -96,11 +97,17 @@ class MCPClient:
         """
         self._elicitation_active.set()
 
+        # FormattedText (style, text) tuples rather than HTML: params.message is
+        # server-supplied and could contain markup characters that break HTML parsing.
+        prompt = FormattedText(
+            [
+                ("bold ansiyellow", f"\nWARNING: {params.message}\n"),
+                ("bold", "Proceed? [y/N] "),
+            ]
+        )
         try:
             with patch_stdout():
-                answer = await PromptSession().prompt_async(
-                    f"\nWARNING: {params.message}\nProceed? [y/N] "
-                )
+                answer = await PromptSession().prompt_async(prompt)
         finally:
             self._elicitation_active.clear()
 
