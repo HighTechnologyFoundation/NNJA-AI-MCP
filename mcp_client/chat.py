@@ -170,22 +170,33 @@ class CommandAutoSuggest(AutoSuggest):
         return None
 
 
-async def _show_thinking(message: str = "Assistant is thinking") -> None:
+async def _show_thinking(
+    message: str = "Assistant is thinking", paused: asyncio.Event | None = None
+) -> None:
     """Animate a spinner until cancelled, clearing its own line on exit."""
+    blank = "\r" + " " * (len(message) + 6) + "\r"
+    was_paused = False
     try:
         for frame in itertools.cycle("|/-\\"):
-            print(f"\r{message}... {frame}", end="", flush=True)
+            is_paused = paused is not None and paused.is_set()
+            if is_paused and not was_paused:
+                print(blank, end="", flush=True)  # clear once on pausing
+            elif not is_paused:
+                print(f"\r{message}... {frame}", end="", flush=True)
+            was_paused = is_paused
             await asyncio.sleep(0.1)
     except asyncio.CancelledError:
         # Wipe the spinner line so the response prints cleanly
-        print("\r" + " " * (len(message) + 6) + "\r", end="", flush=True)
+        print(blank, end="", flush=True)
         raise
 
 
 class ChatSession:
     """Interactive terminal chat session: prompt loop, completion, and query dispatch."""
 
-    def __init__(self, handler: GeminiQueryHandler) -> None:
+    def __init__(
+        self, handler: GeminiQueryHandler, pause_spinner: asyncio.Event | None = None
+    ) -> None:
         self.handler = handler
         self.mcp = handler.mcp
         self.completer = UnifiedCompleter()
@@ -198,6 +209,7 @@ class ChatSession:
         }
         self.completer.set_local_commands(self.local_commands)
         self.session = self._build_session()
+        self.pause_spinner = pause_spinner
 
     async def run(self) -> None:
         print("\nMCP Client's Chat Started!")
@@ -318,7 +330,7 @@ class ChatSession:
             signal.signal(signal.SIGINT, previous)  # restore for the idle prompt
 
     async def _run_query(self, query: str) -> str:
-        spinner = asyncio.create_task(_show_thinking())
+        spinner = asyncio.create_task(_show_thinking(paused=self.pause_spinner))
         try:
             # Process the query through the handler and MCP
             return await self.handler.process_query(query)
@@ -381,6 +393,8 @@ class ChatSession:
         return "Resource"
 
 
-async def run_chat(handler: GeminiQueryHandler) -> None:
+async def run_chat(
+    handler: GeminiQueryHandler, pause_spinner: asyncio.Event | None = None
+) -> None:
     """Create a ChatSession for `handler` and run its interactive loop."""
-    await ChatSession(handler).run()
+    await ChatSession(handler, pause_spinner).run()

@@ -36,6 +36,7 @@ async def test_ctrl_c_cancels_query_and_restores_handler():
 
     session = ChatSession.__new__(ChatSession)  # skip prompt_toolkit setup
     session.handler = SimpleNamespace(process_query=blocking_query)
+    session.pause_spinner = None  # __init__ is bypassed, so set what _run_query reads
 
     original = signal.getsignal(signal.SIGINT)
     captured = io.StringIO()

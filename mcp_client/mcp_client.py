@@ -1,3 +1,4 @@
+import asyncio
 import pathlib
 import re
 import sys
@@ -27,6 +28,9 @@ class MCPClient:
 
         # Simplifies managing multiple async context managers
         self.exit_stack = AsyncExitStack()
+
+        # Pauses spinner while this is set
+        self._elicitation_active = asyncio.Event()
 
     async def __aenter__(self) -> Self:
         """Establish the server connection when entering `async with`."""
@@ -90,10 +94,16 @@ class MCPClient:
         The server pauses its tool call to ask the human before proceeding; "y"/"yes"
         accepts and lets the work run, anything else declines so the server can abort.
         """
-        with patch_stdout():
-            answer = await PromptSession().prompt_async(
-                f"\nWARNING: {params.message}\nProceed? [y/N] "
-            )
+        self._elicitation_active.set()
+
+        try:
+            with patch_stdout():
+                answer = await PromptSession().prompt_async(
+                    f"\nWARNING: {params.message}\nProceed? [y/N] "
+                )
+        finally:
+            self._elicitation_active.clear()
+
         if answer.strip().lower() in {"y", "yes"}:
             return types.ElicitResult(action="accept")
         return types.ElicitResult(action="decline")
@@ -138,6 +148,6 @@ class MCPClient:
             mcp = MCPGateway(self.client_session)
             handler = GeminiQueryHandler(mcp, model=model)
             await handler.verify_model()
-            await chat.run_chat(handler)
+            await chat.run_chat(handler, pause_spinner=self._elicitation_active)
         except RuntimeError as e:
             print(e)
