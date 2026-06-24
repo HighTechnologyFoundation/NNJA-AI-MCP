@@ -113,23 +113,38 @@ VARIABLE_ALIASES = {
 }
 
 
-# Named IR channels each dataset provides, used by the spectral indices below. Channel
-# numbering follows each instrument's own scheme, so this role->ID map is per dataset.
-# SEVIRI (EUMETSAT MSG): ch4 = IR 3.9um, ch9 = IR 10.8um, ch10 = IR 12.0um (verified
-# against the live catalog and EUMETSAT channel numbering).
+# Named IR channels each dataset provides, used by the spectral indices below. The
+# role->ID map is per dataset because channel numbering follows each instrument's own
+# scheme. Each dataset carries an SCCF (satellite channel centre frequency) variable per
+# channel, so a channel's wavelength is c / SCCF -- that is how the mappings below were
+# verified (read from a live sample). Channel layouts:
+#   SEVIRI (MSG):            ch4 = 3.9um, ch9 = 10.8um, ch10 = 12.0um
+#   GOES ABI / Himawari AHI: channels 1-10 are bands 7-16, so ch1 = 3.9um,
+#                            ch8 = 11.2um, ch9 = 12.3um (TMBRST channel N aligns with SCCF N)
+# Caveat: ABI/AHI have no 10.8um channel -- "ir_108" uses their 11.2um clean window and
+# "ir_120" their 12.3um band. The _data_category thresholds were tuned for SEVIRI's exact
+# 3.9/10.8/12.0um bands, so on ABI/AHI the index is an approximation, not band-matched.
 SPECTRAL_CHANNELS: dict[str, dict[str, str]] = {
     "seviri-sevasr-NC021042": {
         "ir_039": "RPSEQ10.TMBRST_allsky_00004",  # 3.9um shortwave
         "ir_108": "RPSEQ10.TMBRST_allsky_00009",  # 10.8um longwave
         "ir_120": "RPSEQ10.TMBRST_allsky_00010",  # 12.0um
     },
-    # To add a geostationary dataset, map these roles to its channel IDs. Other geo
-    # datasets exist with TMBRST channels but different prefixes and channel numbering:
-    #   geo-ahicsr-NC021044  -> RPSEQ11.TMBRST_<ch>
-    #   geo-gsrasr-NC021045  -> ALLSKYRC.TMBRST_allsky_<ch>
-    #   geo-gsrcsr-NC021046  -> CSRADSEQ.TMBRST_<ch>
-    # Their channel->wavelength numbering is NOT in the NNJA-AI docs, so verify which
-    # channel is 3.9/10.8/12.0um for each instrument before adding.
+    "geo-gsrasr-NC021045": {  # GOES ABI all-sky -- 11.2/12.3um windows (see caveat)
+        "ir_039": "ALLSKYRC.TMBRST_allsky_00001",  # 3.9um
+        "ir_108": "ALLSKYRC.TMBRST_allsky_00008",  # 11.2um
+        "ir_120": "ALLSKYRC.TMBRST_allsky_00009",  # 12.3um
+    },
+    "geo-gsrcsr-NC021046": {  # GOES ABI clear-sky -- 11.2/12.3um windows (see caveat)
+        "ir_039": "CSRADSEQ.TMBRST_00001",  # 3.9um
+        "ir_108": "CSRADSEQ.TMBRST_00008",  # 11.2um
+        "ir_120": "CSRADSEQ.TMBRST_00009",  # 12.3um
+    },
+    "geo-ahicsr-NC021044": {  # Himawari AHI clear-sky -- 11.2/12.3um windows (see caveat)
+        "ir_039": "RPSEQ11.TMBRST_00001",  # 3.9um
+        "ir_108": "RPSEQ11.TMBRST_00008",  # 11.2um
+        "ir_120": "RPSEQ11.TMBRST_00009",  # 12.3um
+    },
 }
 
 # Each spectral index defined once, by channel role -- independent of dataset.
@@ -475,8 +490,6 @@ async def calculate_spectral_index(
     ctx: Context,
 ) -> str:
     """Calculate a domain-specific spectral index for satellite data.
-
-    Currently only supported for seviri-sevasr-NC021042. Other datasets will return an error.
 
     Args:
         dataset (str): The name of the dataset (e.g., seviri-sevasr-NC021042).
