@@ -109,8 +109,11 @@ def plot_json_data(json_data: str):
     # Convert Gemini's JSON output into a DataFrame
     df = pd.read_json(StringIO(json_data), orient="records")
 
+    # The server returns columns in an unspecified order, so find the one we want
+    value_cols = [col for col in df.columns if col not in ("LAT", "LON")]
+    plot_col = value_cols[0]
+
     # Plot the data obtained from the query
-    plot_col = df.columns[2]
     plt.figure(figsize=(12, 8))
     plt.scatter(df["LON"], df["LAT"], s=2, c=df[plot_col])
     plt.title(f"AMSU Brightness Temperature for {plot_col}")
