@@ -32,7 +32,7 @@ async def main():
                 "variables": [  # Variable names don't need to be exact
                     "Latitude",
                     "LON",
-                    "brightness temp",
+                    "brightness temperature",
                 ],
             },
         )
@@ -50,11 +50,11 @@ async def main():
                 "variables": [  # Variable names don't need to be exact
                     "Latitude",
                     "LON",
-                    "brightness temp",
-                    "brightness temp 2",
-                    "brightness temp 3",
-                    "brightness temp 4",
-                    "brightness temp 5",
+                    "brightness temperature",
+                    "brightness temperature 2",
+                    "brightness temperature 3",
+                    "brightness temperature 4",
+                    "brightness temperature 5",
                 ],
             },
         )
@@ -79,11 +79,11 @@ async def main():
                 "variables": [  # Variable names don't need to be exact
                     "Latitude",
                     "LON",
-                    "brightness temp",
-                    "brightness temp 2",
-                    "brightness temp 3",
-                    "brightness temp 4",
-                    "brightness temp 5",
+                    "brightness temperature",
+                    "brightness temperature 2",
+                    "brightness temperature 3",
+                    "brightness temperature 4",
+                    "brightness temperature 5",
                 ],
             },
         )
