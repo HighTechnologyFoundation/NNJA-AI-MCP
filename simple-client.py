@@ -40,7 +40,7 @@ async def main():
         # Plot the data obtained from the server
         plot_json_data(loaded.data)
 
-        # ---------- summarize_dataset ----------
+        # ---------- descriptive_stats_dataset ----------
         # Call the `descriptive_stats_dataset` tool, specifying the subset of interest
         stats = await mcp_client.call_tool(
             "descriptive_stats_dataset",
