@@ -201,6 +201,12 @@ class ChatSession:
     ) -> None:
         self.handler = handler
         self.mcp = handler.mcp
+        # Rendering boundary: prompt_toolkit owns input (the prompt session below:
+        # prompts, completion, key bindings); rich owns output (self.console:
+        # markdown, status, errors). They share the terminal safely only because
+        # they run at disjoint times -- never run a rich Live/Status while a
+        # prompt_toolkit prompt is open (that is why the spinner pauses during the
+        # elicitation prompt).
         self.console = Console(highlight=False)
         self.completer = UnifiedCompleter()
         self.autosuggester = CommandAutoSuggest([])
@@ -215,10 +221,14 @@ class ChatSession:
         self.pause_spinner = pause_spinner
 
     async def run(self) -> None:
-        print("\nMCP Client's Chat Started!")
-        print(f"Model: {self.handler.model}")
-        print("Type your queries. Exit with 'quit', 'q' or Ctrl-D.")
-        print("Use @ to mention resources/items and / to use prompts.")
+        self.console.print("\nMCP Client's Chat Started!", style="bold")
+        self.console.print(f"Model: {self.handler.model}", style="dim")
+        self.console.print(
+            "Type your queries. Exit with 'quit', 'q' or Ctrl-D.", style="dim"
+        )
+        self.console.print(
+            "Use @ to mention resources/items and / to use prompts.", style="dim"
+        )
 
         # Initial load of completions
         await self.refresh_completions()
@@ -238,14 +248,14 @@ class ChatSession:
                 await self._respond(query)
 
             except KeyboardInterrupt:
-                print("\nUse 'quit', 'q', or Ctrl-D to exit.")
+                self.console.print("\nUse 'quit', 'q', or Ctrl-D to exit.", style="dim")
                 continue
             except EOFError:
                 break
             except Exception as e:
-                print(f"\nError: {str(e)}")
+                self.console.print(f"\nError: {str(e)}", style="bold red")
 
-        print("\nGoodbye!")
+        self.console.print("\nGoodbye!", style="dim")
 
     async def refresh_completions(self) -> None:
         """Fetch updated prompts and resources from the MCP server to refresh autocompletion."""
@@ -302,7 +312,9 @@ class ChatSession:
             # Deduplicate items while preserving metadata
             self.completer.update_resource_items(sorted(set(all_items)))
         except Exception as e:
-            print(f"Warning: Could not refresh completions: {e}")
+            self.console.print(
+                f"Warning: Could not refresh completions: {e}", style="yellow"
+            )
 
     async def _dispatch_local(self, query: str) -> bool:
         """Run a client-side command if `query` names one. Return True if handled."""
@@ -355,7 +367,7 @@ class ChatSession:
     async def _handle_refresh(self) -> None:
         self.mcp.invalidate_cache()
         await self.refresh_completions()
-        print("Completions refreshed!")
+        self.console.print("Completions refreshed!", style="dim")
 
     def _build_session(self) -> PromptSession:
         return PromptSession(
