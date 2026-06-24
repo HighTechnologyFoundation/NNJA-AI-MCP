@@ -4,7 +4,7 @@ import re
 import signal
 import sys
 from contextlib import AsyncExitStack
-from typing import Any, Awaitable, Callable, Self
+from typing import Any, Self
 
 import mcp.types as types
 from mcp import ClientSession, StdioServerParameters
@@ -13,6 +13,9 @@ from mcp.client.streamable_http import streamable_http_client
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.patch_stdout import patch_stdout
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 from mcp_client import chat
 from mcp_client.gateway import MCPGateway
@@ -128,37 +131,36 @@ class MCPClient:
 
     async def list_all_members(self) -> None:
         """List all server-side tools, prompts, and resources."""
-        print("MCP Server Members")
-        print("=" * 50)
-
+        console = Console()
         sections = {
             "tools": self.client_session.list_tools,
             "prompts": self.client_session.list_prompts,
             "resources": self.client_session.list_resources,
         }
         for section, listing_method in sections.items():
-            await self._list_section(section, listing_method)
+            try:
+                items = getattr(await listing_method(), section)
+            except Exception as e:
+                console.print(Text(f"{section.upper()}: Error - {e}", style="red"))
+                continue
+            if not items:
+                console.print(Text(f"{section.upper()}: none available", style="dim"))
+                continue
 
-        print("\n" + "=" * 50)
+            table = Table(
+                title=f"{section.upper()} ({len(items)})",
+                title_justify="left",
+                title_style="bold",
+            )
+            table.add_column("Name", style="cyan", no_wrap=True)
+            table.add_column("Description")
+            for item in items:
+                # get summary from docstring (first paragraph)
+                summary = (item.description or "").strip().split("\n\n")[0]
+                table.add_row(item.name, Text(summary or "No description"))
 
-    async def _list_section(
-        self,
-        section: str,
-        list_method: Callable[[], Awaitable[Any]],
-    ) -> None:
-        """Fetch and print details for a specific section (tools/prompts/resources)."""
-        try:
-            items = getattr(await list_method(), section)
-            if items:
-                print(f"\n{section.upper()} ({len(items)}):")
-                print("-" * 30)
-                for item in items:
-                    description = item.description or "No description"
-                    print(f" > {item.name} - {description}\n")
-            else:
-                print(f"\n{section.upper()}: None available")
-        except Exception as e:
-            print(f"\n{section.upper()}: Error - {e}")
+            console.print(table)
+            console.print()
 
     async def run_chat(self, model: str | None = None) -> None:
         """Initialize the query handler and launch the interactive chat UI."""
