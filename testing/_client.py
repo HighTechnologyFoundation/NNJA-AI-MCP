@@ -2,7 +2,8 @@
 
 Each test calls `run_tool(...)`
 The server must be in HTTP mode:
-    uv run testing/test_linear_trend.py"""
+    uv run testing/test_linear_trend.py
+"""
 
 import asyncio
 from time import perf_counter
