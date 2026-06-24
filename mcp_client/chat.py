@@ -364,7 +364,7 @@ class ChatSession:
             key_bindings=self._build_key_bindings(),
             style=Style.from_dict(
                 {
-                    "prompt": "#aaaaaa",
+                    "prompt": "bold ansigreen",
                     "completion-menu.completion": "bg:#222222 #ffffff",
                     "completion-menu.completion.current": "bg:#444444 #ffffff",
                 }
