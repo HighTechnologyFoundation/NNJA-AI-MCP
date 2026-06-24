@@ -113,6 +113,32 @@ VARIABLE_ALIASES = {
 }
 
 
+# Named IR channels each dataset provides, used by the spectral indices below. Channel
+# numbering follows each instrument's own scheme, so this role->ID map is per dataset.
+# SEVIRI (EUMETSAT MSG): ch4 = IR 3.9um, ch9 = IR 10.8um, ch10 = IR 12.0um (verified
+# against the live catalog and EUMETSAT channel numbering).
+SPECTRAL_CHANNELS: dict[str, dict[str, str]] = {
+    "seviri-sevasr-NC021042": {
+        "ir_039": "RPSEQ10.TMBRST_allsky_00004",  # 3.9um shortwave
+        "ir_108": "RPSEQ10.TMBRST_allsky_00009",  # 10.8um longwave
+        "ir_120": "RPSEQ10.TMBRST_allsky_00010",  # 12.0um
+    },
+    # To add a geostationary dataset, map these roles to its channel IDs. Other geo
+    # datasets exist with TMBRST channels but different prefixes and channel numbering:
+    #   geo-ahicsr-NC021044  -> RPSEQ11.TMBRST_<ch>
+    #   geo-gsrasr-NC021045  -> ALLSKYRC.TMBRST_allsky_<ch>
+    #   geo-gsrcsr-NC021046  -> CSRADSEQ.TMBRST_<ch>
+    # Their channel->wavelength numbering is NOT in the NNJA-AI docs, so verify which
+    # channel is 3.9/10.8/12.0um for each instrument before adding.
+}
+
+# Each spectral index defined once, by channel role -- independent of dataset.
+SPECTRAL_INDICES: dict[str, tuple[str, str]] = {
+    "wildfire_risk": ("ir_039", "ir_108"),  # shortwave vs longwave
+    "cloud_cooling": ("ir_108", "ir_120"),  # split-window
+}
+
+
 class DatasetResult(NamedTuple):
     """A named tuple to hold the dataset result along with metadata for tools that need it.
 
@@ -466,31 +492,18 @@ async def calculate_spectral_index(
     Returns:
         str: A JSON string with the calculated index statistics.
     """
-    mapping = {
-        # Mapping for SEVIRI channels
-        # Channel 4: 3.9um, Channel 9: 10.8um, Channel 10: 12.0um
-        "seviri-sevasr-NC021042": {
-            "wildfire_risk": (
-                "RPSEQ10.TMBRST_allsky_00004",
-                "RPSEQ10.TMBRST_allsky_00009",
-            ),
-            "cloud_cooling": (
-                "RPSEQ10.TMBRST_allsky_00009",
-                "RPSEQ10.TMBRST_allsky_00010",
-            ),
-        }
-    }
-
     # Resolve the entered dataset for use in guard conditions
     resolved_dataset = _resolve_dataset(dataset).name
 
-    if resolved_dataset not in mapping:
+    channels = SPECTRAL_CHANNELS.get(resolved_dataset)
+    if channels is None:
         return f"Error: Dataset '{dataset}' ({resolved_dataset}) not supported for index calculation."
 
-    if index_name not in mapping[resolved_dataset]:
+    role1, role2 = SPECTRAL_INDICES[index_name]
+    if role1 not in channels or role2 not in channels:
         return f"Error: Index '{index_name}' not implemented for dataset '{dataset}' ({resolved_dataset})."
 
-    var1, var2 = mapping[resolved_dataset][index_name]
+    var1, var2 = channels[role1], channels[role2]
 
     load_vars = [var1, var2]
     if index_name == "wildfire_risk":
