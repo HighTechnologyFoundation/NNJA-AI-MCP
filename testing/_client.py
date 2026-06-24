@@ -1,6 +1,6 @@
 """Shared MCP client setup for the testing/ scripts
 
-Each test calls `run_tool(...)`
+Each test calls `run_tool(...)` (happy path) or `expect_error(...)` (negative case).
 The server must be in HTTP mode:
     uv run testing/test_linear_trend.py
 """
@@ -47,4 +47,31 @@ def run_tool(tool: str, args: dict[str, Any], *, url: str = DEFAULT_URL) -> Any:
     _check_result(tool, result.data, duration)
     print(f"Time taken: {duration:.2f} seconds")
     print(result)
+    return result
+
+
+def expect_error(
+    tool: str, args: dict[str, Any], expected: str, *, url: str = DEFAULT_URL
+) -> Any:
+    """Call a tool expecting a friendly "Error: ..." payload that contains `expected`.
+
+    The inverse of `run_tool`: raises SystemExit if the tool unexpectedly succeeded, or
+    errored with a message that doesn't mention `expected` -- locking in the tool's
+    error contract for a known bad input.
+    """
+    start = perf_counter()
+    result = asyncio.run(_call(tool, args, url))
+    duration = perf_counter() - start
+    payload = result.data
+    if not (isinstance(payload, str) and payload.startswith("Error")):
+        raise SystemExit(
+            f"{tool} should have errored but returned after {duration:.2f}s: {payload!r}"
+        )
+    if expected.lower() not in payload.lower():
+        raise SystemExit(
+            f"{tool} errored but the message lacked {expected!r} "
+            f"after {duration:.2f}s: {payload}"
+        )
+    print(f"Time taken: {duration:.2f} seconds")
+    print(f"OK (expected error containing {expected!r}): {payload}")
     return result
