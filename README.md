@@ -88,6 +88,11 @@ Useful for seeing how to integrate MCP into your own Python automation.
 an LLM. Use this to see how to programmatically convert tool outputs into
 Pandas DataFrames for traditional data science.
 
+> [!NOTE]
+> The two example scripts use the high-level `fastmcp.Client` to be concise, while
+the CLI (`mcp_client/`) uses the low-level `mcp` SDK (`ClientSession`) for finer control.
+All three interact with the same server, so the examples are the simplest place to start.
+
 ## Running with Docker
 
 The container runs the **MCP server** (not the client) in HTTP mode -
