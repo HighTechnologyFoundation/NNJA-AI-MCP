@@ -21,14 +21,15 @@ async def _call(tool: str, args: dict[str, Any], url: str) -> Any:
             print(f"Connected: {client.is_connected()}")
             return await client.call_tool(tool, args)
     except RuntimeError as e:
-        if "failed to connect" in str(e):
-            raise SystemExit(
-                f"Could not reach the MCP server at {url}. Start it in HTTP mode first:\n"
-                "- PowerShell: $env:MCP_TRANSPORT='http'; uv run server.py\n"
-                "- bash/zsh:   MCP_TRANSPORT=http uv run server.py\n"
-                "- Docker:     docker build -t nnja-ai-mcp .\n"
-                "              docker run -p 8000:8000 nnja-ai-mcp"
-            ) from e
+        if "failed to connect" not in str(e):
+            raise  # a real error, not a down server
+        raise SystemExit(
+            f"Could not reach the MCP server at {url}. Start it in HTTP mode first:\n"
+            "- PowerShell: $env:MCP_TRANSPORT='http'; uv run server.py\n"
+            "- bash/zsh:   MCP_TRANSPORT=http uv run server.py\n"
+            "- Docker:     docker build -t nnja-ai-mcp .\n"
+            "              docker run -p 8000:8000 nnja-ai-mcp"
+        ) from e
 
 
 def _check_result(tool: str, payload: Any, duration: float) -> None:
