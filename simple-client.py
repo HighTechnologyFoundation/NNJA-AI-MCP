@@ -72,7 +72,7 @@ async def main():
 
             # ---------- correlation_matrix_dataset ----------
             # Call the `correlation_matrix_dataset` tool, specifying the subset of interest
-            stats = await mcp_client.call_tool(
+            correlation = await mcp_client.call_tool(
                 "correlation_matrix_dataset",
                 {
                     "dataset": "amsu",  # Doesn't need to be an exact dataset name
@@ -90,7 +90,7 @@ async def main():
             )
 
             # Read the returned data as a literal JSON string
-            json_correlation_matrix = StringIO(_require_data(stats))
+            json_correlation_matrix = StringIO(_require_data(correlation))
 
             # Convert the list of dictionaries to a DataFrame
             correlation_matrix_df = pd.read_json(json_correlation_matrix)
