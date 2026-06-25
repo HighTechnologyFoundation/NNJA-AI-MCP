@@ -39,7 +39,7 @@ async def main():
             )
 
             # Plot the data obtained from the server
-            plot_json_data(loaded.data)
+            plot_json_data(_require_data(loaded))
 
             # ---------- descriptive_stats_dataset ----------
             # Call the `descriptive_stats_dataset` tool, specifying the subset of interest
@@ -61,7 +61,7 @@ async def main():
             )
 
             # Read the returned data as a literal JSON string
-            json_stats = StringIO(stats.data)
+            json_stats = StringIO(_require_data(stats))
 
             # Convert the list of dictionaries to a DataFrame
             stats_df = pd.read_json(json_stats)
@@ -90,7 +90,7 @@ async def main():
             )
 
             # Read the returned data as a literal JSON string
-            json_correlation_matrix = StringIO(stats.data)
+            json_correlation_matrix = StringIO(_require_data(stats))
 
             # Convert the list of dictionaries to a DataFrame
             correlation_matrix_df = pd.read_json(json_correlation_matrix)
@@ -110,6 +110,18 @@ async def main():
             "              docker run -p 8000:8000 nnja-ai-mcp\n"
             "then re-run this script."
         ) from e
+
+
+def _require_data(result):
+    """Return the tool's data payload, exiting with its message if the tool failed.
+
+    Tools report failures as an "Error: ..." string rather than raising, so check for
+    that before feeding the payload to pd.read_json (which would otherwise choke on a
+    non-JSON value with an opaque traceback).
+    """
+    if isinstance(result.data, str) and result.data.startswith("Error:"):
+        raise SystemExit(result.data)
+    return result.data
 
 
 # Function to plot data from JSON format
