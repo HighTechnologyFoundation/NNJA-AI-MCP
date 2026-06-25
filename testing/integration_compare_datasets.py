@@ -11,7 +11,7 @@ run_tool(
         "time": "2023-01-01",
         "end_time": "2023-01-02",
         "variables": ["brightness temperature"],
-        "lat_bounds": [30, 40],
+        "lat_bounds": [30, 40],  # US Southwest (desert)
         "lon_bounds": [-120, -110],
     },
 )
