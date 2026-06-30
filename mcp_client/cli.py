@@ -3,7 +3,9 @@ import argparse
 
 def parse_args():
     """Parse command line arguments and return parsed args."""
-    parser = argparse.ArgumentParser(description="A minimal MCP client")
+    parser = argparse.ArgumentParser(
+        description="Interactive client for the NNJA-AI MCP server"
+    )
 
     # Optional positional argument for the server script / URL
     parser.add_argument(
