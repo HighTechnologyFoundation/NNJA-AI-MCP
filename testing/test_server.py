@@ -1,8 +1,13 @@
-"""Unit tests for server.py variable resolution.
+"""Unit tests for server.py paths that run without a live catalog or network.
 
-VARIABLE_ALIASES resolution short-circuits before `_fuzzy_variable_search` touches
-the DataCatalog (it returns early once every variable is resolved), so these run
-with no server, no catalog, and no network — only a fake dataset with a `.name`.
+These cover the catalog-independent server internals by faking the catalog or
+monkeypatching `_gated_access`:
+  - variable resolution — VARIABLE_ALIASES / `_fuzzy_variable_search`, which
+    short-circuits before touching the DataCatalog (a fake dataset with a `.name`
+    is enough);
+  - the large-load elicitation gate (`_confirm_large_load`);
+  - the async data tools (`load_data_sample`, `calculate_trend`), driven by a
+    hand-built DataFrame returned from a faked `_gated_access`.
 """
 
 import json
