@@ -18,6 +18,11 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 from mcp_client.handlers import GeminiQueryHandler
+from mcp_client.nnja_contract import (
+    DATASET_LIST_RESOURCE_HINT,
+    DATASET_LIST_RESOURCE_URI_PREFIX,
+    DATASET_META_LABEL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +281,8 @@ class ChatSession:
             for res in resources:
                 meta = self.get_meta_for_resource(res)
                 is_list_provider = (
-                    "list" in res.name.lower() or "datasets" in res.name.lower()
+                    "list" in res.name.lower()
+                    or DATASET_LIST_RESOURCE_HINT in res.name.lower()
                 )
 
                 # If it's a list provider, fetch the items inside it
@@ -410,8 +416,8 @@ class ChatSession:
     @staticmethod
     def get_meta_for_resource(res: Resource) -> str:
         """Categorize resources by their meta type for UI display."""
-        if str(res.uri).startswith("data://datasets"):
-            return "Dataset"
+        if str(res.uri).startswith(DATASET_LIST_RESOURCE_URI_PREFIX):
+            return DATASET_META_LABEL
         return "Resource"
 
 

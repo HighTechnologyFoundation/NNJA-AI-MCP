@@ -8,6 +8,11 @@ from fuzzywuzzy import process
 from google import genai
 
 from mcp_client.gateway import MCPGateway
+from mcp_client.nnja_contract import (
+    DATASET_INFO_ARG,
+    DATASET_INFO_TOOL,
+    DATASET_LIST_RESOURCE_HINT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +98,10 @@ class GeminiQueryHandler:
 
         # If mentions are left, see if they're in the datasets list
         if mentions:
-            ds_res = next((r for r in resources if "datasets" in r.name.lower()), None)
+            ds_res = next(
+                (r for r in resources if DATASET_LIST_RESOURCE_HINT in r.name.lower()),
+                None,
+            )
             if ds_res:
                 try:
                     items = await self.mcp.read_resource(str(ds_res.uri))
@@ -101,7 +109,7 @@ class GeminiQueryHandler:
                         for item in items:
                             if str(item) in mentions:
                                 info = await self.mcp.client_session.call_tool(
-                                    "dataset_info", {"dataset": str(item)}
+                                    DATASET_INFO_TOOL, {DATASET_INFO_ARG: str(item)}
                                 )
                                 if not info.isError:
                                     mentioned_docs.append(
