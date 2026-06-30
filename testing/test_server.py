@@ -5,6 +5,7 @@ the DataCatalog (it returns early once every variable is resolved), so these run
 with no server, no catalog, and no network — only a fake dataset with a `.name`.
 """
 
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -129,3 +130,147 @@ async def test_load_data_sample_awaits_gated_access(monkeypatch):
     result = await server.load_data_sample("ds", "2021-01-01", ["latitude"], ctx=ctx)
 
     assert '"LAT":1.5' in result
+
+
+# calculate_trend regression assembly
+#
+# calculate_trend's deterministic body (everything after the _gated_access load)
+# selects the data column, aggregates per OBS_DATE, guards <2 dates, runs
+# stats.linregress on a nanosecond time axis, and assembles the result dict. We drive
+# it with a hand-built DataFrame via a faked _gated_access -- no catalog, no network;
+# ctx is unused once _gated_access is replaced.
+
+
+def _fake_gated_returning(df: pd.DataFrame):
+    """A `_gated_access` stand-in that ignores its args and yields `df`."""
+
+    async def fake_gated(_ctx, *_args, **_kwargs):
+        return server.DatasetResult(data=df, var_mapping={})
+
+    return fake_gated
+
+
+@sync
+async def test_calculate_trend_perfect_line(monkeypatch):
+    # 3 dates x 2 rows; per-date means 10/20/30 form an exact line (+10/day).
+    # LAT/LON are included to confirm they're dropped from data-column selection.
+    df = pd.DataFrame(
+        {
+            "OBS_DATE": [
+                "2021-01-01",
+                "2021-01-01",
+                "2021-01-02",
+                "2021-01-02",
+                "2021-01-03",
+                "2021-01-03",
+            ],
+            "TMBR": [8.0, 12.0, 18.0, 22.0, 28.0, 32.0],  # per-date means: 10, 20, 30
+            "LAT": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            "LON": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        }
+    )
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    out = json.loads(
+        await server.calculate_trend(
+            "ds", "2021-01-01", "2021-01-03", "brightness temperature", ctx=ctx
+        )
+    )
+
+    assert out["actual_id"] == "TMBR"  # OBS_DATE / LAT / LON excluded
+    assert out["variable"] == "brightness temperature"  # echoes the requested name
+    assert out["r_squared"] == pytest.approx(1.0)  # exact line -> perfect fit
+    assert out["slope"] > 0  # increasing series
+    assert out["mean_value"] == pytest.approx(20.0)
+    # Reconstruct the fitted line in *data* units to validate slope AND intercept
+    # without asserting the opaque per-nanosecond slope literal. Convert dates the
+    # same way the tool does (pd.to_numeric(pd.to_datetime(...)) -> ns since epoch).
+    t = pd.to_numeric(pd.to_datetime(pd.Series(["2021-01-01", "2021-01-03"])))
+    assert out["intercept"] + out["slope"] * t.iloc[0] == pytest.approx(10.0)
+    assert out["intercept"] + out["slope"] * t.iloc[1] == pytest.approx(30.0)
+    assert out["start_date"].startswith("2021-01-01")
+    assert out["end_date"].startswith("2021-01-03")
+
+
+@sync
+async def test_calculate_trend_decreasing_series_has_negative_slope(monkeypatch):
+    # A descending series must yield a negative slope (guards against a sign flip).
+    df = pd.DataFrame(
+        {
+            "OBS_DATE": ["2021-01-01", "2021-01-02", "2021-01-03"],
+            "TMBR": [30.0, 20.0, 10.0],
+        }
+    )
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    out = json.loads(
+        await server.calculate_trend("ds", "2021-01-01", "2021-01-03", "temp", ctx=ctx)
+    )
+
+    assert out["slope"] < 0
+    assert out["r_squared"] == pytest.approx(1.0)
+
+
+@sync
+async def test_calculate_trend_single_date_errors(monkeypatch):
+    # One distinct OBS_DATE -> groupby yields a single row -> the <2 dates guard fires.
+    df = pd.DataFrame({"OBS_DATE": ["2021-01-01", "2021-01-01"], "TMBR": [10.0, 20.0]})
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.calculate_trend(
+        "ds", "2021-01-01", "2021-01-01", "temp", ctx=ctx
+    )
+
+    assert result.startswith("Error:")
+    assert "Not enough time points" in result
+
+
+@sync
+async def test_calculate_trend_no_data_variable_errors(monkeypatch):
+    # The frame holds only excluded columns -> no data column left to regress.
+    df = pd.DataFrame(
+        {
+            "OBS_DATE": ["2021-01-01", "2021-01-02"],
+            "LAT": [1.0, 2.0],
+            "LON": [3.0, 4.0],
+        }
+    )
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.calculate_trend(
+        "ds", "2021-01-01", "2021-01-02", "temp", ctx=ctx
+    )
+
+    assert result == "Error: No data variable found in result."
+
+
+@sync
+async def test_calculate_trend_empty_frame_errors(monkeypatch):
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(pd.DataFrame()))
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.calculate_trend(
+        "ds", "2021-01-01", "2021-01-02", "temp", ctx=ctx
+    )
+
+    assert result == "Error: No data found for the given criteria."
+
+
+@sync
+async def test_calculate_trend_propagates_value_error(monkeypatch):
+    # A ValueError from the access layer becomes a friendly "Error: ..." string.
+    async def boom(_ctx, *_args, **_kwargs):
+        raise ValueError("bad bounds")
+
+    monkeypatch.setattr(server, "_gated_access", boom)
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.calculate_trend(
+        "ds", "2021-01-01", "2021-01-02", "temp", ctx=ctx
+    )
+
+    assert result == "Error: bad bounds"
