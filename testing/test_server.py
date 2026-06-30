@@ -71,6 +71,91 @@ def test_alias_lookup_normalizes_spaces():
     assert result == {"wind speed": "WNDSQ1.WSPD"}
 
 
+# _fuzzy_variable_search: the fuzzy *fallback* (un-aliased names)
+#
+# The two alias tests above cover the short-circuit that returns before the catalog is
+# touched. These cover the fallback (server.py:1024-1038), which runs
+# `_build_variable_index` -- so it needs a fake catalog -- for any name NOT in
+# VARIABLE_ALIASES. Descriptions here are deliberately non-aliased ("Radiance"/"Albedo")
+# so they reach the fallback instead of short-circuiting.
+
+# (id, description) pairs. `_build_variable_index` keys `dataset_vars` on
+# description + " <last number in the id>" (or just the description when the id has no
+# digit), so these produce the keys "Radiance 2", "Radiance 3", and "Albedo".
+_FAKE_VARS = (
+    ("RADSEQ.TMBR_00002", "Radiance"),
+    ("RADSEQ.TMBR_00003", "Radiance"),
+    ("MYALBEDO", "Albedo"),
+)
+
+
+class _FakeVarCatalog:
+    """Minimal `_catalog` stand-in: indexing returns the single fake dataset."""
+
+    def __init__(self, dataset):
+        self._dataset = dataset
+
+    def __getitem__(self, _name):
+        return self._dataset
+
+
+def _fake_var_dataset(name="fake-ds", variables=_FAKE_VARS):
+    """A fake NNJADataset: `.name` + `.list_variables()` over (id, description) pairs."""
+    var_objs = [SimpleNamespace(id=i, description=d) for i, d in variables]
+    return SimpleNamespace(name=name, list_variables=lambda: {"all": var_objs})
+
+
+@pytest.fixture
+def clear_var_index_cache():
+    # `_build_variable_index` is @lru_cache'd; clear before and after so a fake-catalog
+    # entry never leaks into (or out of) these tests.
+    server._build_variable_index.cache_clear()
+    yield
+    server._build_variable_index.cache_clear()
+
+
+@pytest.mark.parametrize(
+    "query, expected_id",
+    [
+        ("RADSEQ.TMBR_00002", "RADSEQ.TMBR_00002"),  # exact ID -> passthrough
+        ("Radiance 2", "RADSEQ.TMBR_00002"),  # description + last-number key
+        ("Radiance 3", "RADSEQ.TMBR_00003"),  # same description, different channel
+        ("Albedo", "MYALBEDO"),  # description-only key (the id has no digit)
+    ],
+)
+def test_fuzzy_search_fallback_exact_matches(
+    monkeypatch, clear_var_index_cache, query, expected_id
+):
+    dataset = _fake_var_dataset()
+    monkeypatch.setattr(server, "_catalog", _FakeVarCatalog(dataset), raising=False)
+
+    assert server._fuzzy_variable_search(dataset, [query]) == {query: expected_id}
+
+
+def test_fuzzy_search_fallback_matches_close_typo(monkeypatch, clear_var_index_cache):
+    # A typo of the "Radiance 2" key fuzzy-matches (score >= 60) and resolves to its ID.
+    dataset = _fake_var_dataset()
+    monkeypatch.setattr(server, "_catalog", _FakeVarCatalog(dataset), raising=False)
+
+    result = server._fuzzy_variable_search(dataset, ["Radince 2"])
+
+    assert result == {"Radince 2": "RADSEQ.TMBR_00002"}
+
+
+def test_fuzzy_search_fallback_returns_none_below_cutoff(
+    monkeypatch, clear_var_index_cache
+):
+    # Nothing scores >= 60, so process.extractOne returns None and the variable is
+    # reported unresolved (None) -- which _access_dataset turns into a "Could not
+    # resolve variable(s)" error upstream.
+    dataset = _fake_var_dataset()
+    monkeypatch.setattr(server, "_catalog", _FakeVarCatalog(dataset), raising=False)
+
+    result = server._fuzzy_variable_search(dataset, ["qqqqqqqq"])
+
+    assert result == {"qqqqqqqq": None}
+
+
 def _fake_ctx(*, supports: bool, action: str = "accept") -> Any:
     """A minimal Context stand-in: a capability check plus an async elicit."""
 
