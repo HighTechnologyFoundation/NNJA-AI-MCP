@@ -8,6 +8,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastmcp>=3.0.0,<4",
     "fuzzywuzzy>=0.18.0",
+    "mcp>=1.27.1",
     "nnja-ai>=1.0.0,<2",
     "numpy>=2.4.6",
     "pandas>=3.0.3",
