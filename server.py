@@ -1108,7 +1108,7 @@ def _calculate_wildfire_risk_index(
     utc_hour = df["MSG_DATE"].dt.hour
 
     # Solar time adjustment (15 degrees longitude = 1 hour difference from UTC)
-    local_hour = (utc_hour + (df["LON"] / 15.0).astype(int)) % 24
+    local_hour = (utc_hour + np.floor(df["LON"] / 15.0).astype(int)) % 24
     is_night = (local_hour < 6) | (local_hour > 18)  # per-row boolean Series
 
     # Apply vectorized wildfire risk categorization to the data, providing bt_39 and the is_night flag
