@@ -489,10 +489,20 @@ async def calculate_spectral_index(
     *,
     ctx: Context,
 ) -> str:
-    """Calculate a domain-specific spectral index for satellite data.
+    """Calculate a domain-specific spectral index for satellite infrared data.
+
+    Supported on the SEVIRI (MSG), GOES ABI, and Himawari AHI infrared datasets;
+    other datasets return an error.
+
+    Note: the index thresholds are tuned for SEVIRI's exact 3.9/10.8/12.0um bands.
+    GOES ABI and Himawari AHI lack the 10.8um and 12.0um channels, so their nearest
+    windows (~11.2um and ~12.3um respectively) are substituted -- results on those
+    datasets are an approximation, not band-matched, and should be reported with that
+    caveat. (The 3.9um shortwave band matches across all three.)
 
     Args:
-        dataset (str): The name of the dataset (e.g., seviri-sevasr-NC021042).
+        dataset (str): The name of the dataset (e.g., seviri-sevasr-NC021042, or a
+            GOES ABI / Himawari AHI dataset).
         time (str): The time of interest (YYYY-MM-DD).
         index_name (str): The index to calculate.
             - "wildfire_risk": Based on difference between shortwave (3.9um) and longwave (10.8um) IR.
