@@ -49,6 +49,11 @@ If you (or the AI) make a typo, the server will automatically find the closest v
     # GEMINI_API_KEY=your_key_here
     ```
 
+    The template also sets an optional `GEMINI_MODEL` (default
+    `gemini-3.1-flash-lite`). The chat model is resolved as `--model` flag >
+    `GEMINI_MODEL` in `.env` > the built-in default; an invalid model name is
+    rejected at startup, which prints the valid options.
+
 1. Install dependencies (and the CLI client):
 
     ```bash
