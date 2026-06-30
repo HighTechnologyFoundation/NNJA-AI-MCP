@@ -41,7 +41,7 @@ async def catalog_lifespan(server: FastMCP):
         server (FastMCP): The FastMCP server instance.
 
     Yields:
-        dict[str, Any]: An empty context dict. Tool use the module-level _catalog variable.
+        dict[str, Any]: An empty context dict. Tools use the module-level _catalog variable.
 
     Raises:
         RuntimeError: If the catalog fails to initialize (e.g., GCS unreachable or authentication failure).
