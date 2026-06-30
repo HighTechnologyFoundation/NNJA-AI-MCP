@@ -1466,6 +1466,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
     { name = "fuzzywuzzy" },
+    { name = "mcp" },
     { name = "nnja-ai" },
     { name = "numpy" },
     { name = "pandas" },
@@ -1490,6 +1491,7 @@ dev = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=3.0.0,<4" },
     { name = "fuzzywuzzy", specifier = ">=0.18.0" },
+    { name = "mcp", specifier = ">=1.27.1" },
     { name = "nnja-ai", specifier = ">=1.0.0,<2" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "pandas", specifier = ">=3.0.3" },
