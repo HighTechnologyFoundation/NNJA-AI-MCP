@@ -101,11 +101,12 @@ VARIABLE_ALIASES = {
         "conv-adpsfc-NC000101": "BSYWND1.WDIR",
         "conv-adpupa-NC002001": "WDIR_PRLC100000",
     },
+    # "pressure" resolves to mean-sea-level pressure (MSLP)
     "pressure": {
-        "conv-adpsfc-NC000001": "PRSSQ1.PRES",
-        "conv-adpsfc-NC000002": "PRSSQ1.PRES",
+        "conv-adpsfc-NC000001": "PRSSQ1.PMSL",
+        "conv-adpsfc-NC000002": "PRSSQ1.PMSL",
         "conv-adpsfc-NC000007": "MTRPRS.PMSL",
-        "conv-adpsfc-NC000101": "PRESDATA.PRESSQ03.PRES",
+        "conv-adpsfc-NC000101": "PRESDATA.PRESSQ03.PMSL",
     },
     "latitude": {"DEFAULT": "LAT"},
     "longitude": {"DEFAULT": "LON"},
