@@ -63,7 +63,7 @@ async def main():
             # Read the returned data as a literal JSON string
             json_stats = StringIO(_require_data(stats))
 
-            # Convert the list of dictionaries to a DataFrame
+            # Parse the column-oriented stats JSON ({variable: {statistic: value}}) into a DataFrame
             stats_df = pd.read_json(json_stats)
 
             # Print the accessed statistical data
@@ -92,7 +92,7 @@ async def main():
             # Read the returned data as a literal JSON string
             json_correlation_matrix = StringIO(_require_data(correlation))
 
-            # Convert the list of dictionaries to a DataFrame
+            # Parse the column-oriented correlation JSON ({variable: {variable: value}}) into a DataFrame
             correlation_matrix_df = pd.read_json(json_correlation_matrix)
 
             # Print the accessed correlation matrix DataFrame
@@ -131,7 +131,7 @@ def plot_json_data(json_data: str):
     Args:
         json_data (str): A string of JSON data in records orientation representing data to plot.
     """
-    # Convert Gemini's JSON output into a DataFrame
+    # Convert the records-oriented JSON into a DataFrame
     df = pd.read_json(StringIO(json_data), orient="records")
 
     # The server returns columns in an unspecified order, so find the one we want
