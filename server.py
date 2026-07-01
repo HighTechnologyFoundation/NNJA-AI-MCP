@@ -405,7 +405,6 @@ async def calculate_trend(
     start_time: str,
     end_time: str,
     variable: str,
-    rows: int | None = None,
     lat_bounds: list[float] | None = None,
     lon_bounds: list[float] | None = None,
     *,
@@ -420,7 +419,6 @@ async def calculate_trend(
         start_time (str): Start date (YYYY-MM-DD).
         end_time (str): End date (YYYY-MM-DD).
         variable (str): The variable to calculate the trend for.
-        rows (int, optional): The number of rows of data to use for analysis. Defaults to None (all rows).
         lat_bounds (list[float], optional): Latitude boundaries [min, max].
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
@@ -435,7 +433,7 @@ async def calculate_trend(
                 dataset,
                 start_time,
                 [variable, "OBS_DATE"],
-                rows,
+                None,  # trend always uses the full window (no row limit)
                 lat_bounds,
                 lon_bounds,
                 end_time,
