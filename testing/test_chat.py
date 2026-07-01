@@ -69,3 +69,35 @@ async def test_ctrl_c_cancels_query_and_restores_handler():
 
     assert "cancel" in captured.getvalue().lower()  # the user saw the exit hint
     assert handler_after is original  # _respond restored the SIGINT handler itself
+
+
+@sync
+async def test_dispatch_local_handles_bare_slash():
+    """A lone '/' names no command -> return False (fall through), never IndexError.
+
+    Regression for CLI B1: `query[1:].split()[0]` raised IndexError on a bare '/',
+    which surfaced as a confusing "list index out of range" instead of the input
+    simply being treated as "not a local command".
+    """
+    handler: Any = SimpleNamespace(mcp=None)
+    with patch.object(ChatSession, "_build_session", lambda _self: None):
+        session = ChatSession(handler)
+
+    called = False
+
+    async def fake_handler():
+        nonlocal called
+        called = True
+
+    session.local_commands = {"refresh": {"description": "x", "handler": fake_handler}}
+
+    # The bug: bare "/" (and "/" + whitespace) must not raise; they name no command.
+    assert await session._dispatch_local("/") is False
+    assert await session._dispatch_local("/   ") is False
+    # A non-slash line and an unknown command both fall through without dispatching.
+    assert await session._dispatch_local("hello") is False
+    assert await session._dispatch_local("/nope") is False
+    assert called is False
+    # A real local command still dispatches -- the guard didn't break the happy path.
+    assert await session._dispatch_local("/refresh") is True
+    assert called is True

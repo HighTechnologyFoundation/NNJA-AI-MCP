@@ -327,7 +327,10 @@ class ChatSession:
         if not query.startswith("/"):
             return False
 
-        command = query[1:].split()[0].lower()
+        parts = query[1:].split()
+        if not parts:  # a bare "/" (or "/" + whitespace) names no command
+            return False
+        command = parts[0].lower()
         spec = self.local_commands.get(command)
         if spec is None:
             return False
