@@ -1,8 +1,8 @@
-"""Shared MCP client setup for the testing/ scripts
+"""Shared MCP client setup for the integration_*.py scripts.
 
-Each test calls `run_tool(...)` (happy path) or `expect_error(...)` (negative case).
-The server must be in HTTP mode:
-    uv run testing/test_linear_trend.py
+Each script calls `run_tool(...)` (happy path) or `expect_error(...)` (negative case),
+and needs the server running in HTTP mode first (see testing/README.md). For example:
+    uv run testing/integration_linear_trend.py
 """
 
 import asyncio
