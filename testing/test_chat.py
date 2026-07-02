@@ -16,9 +16,9 @@ import signal
 from contextlib import redirect_stdout
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
-from _fakes import sync
+from _fakes import resource, stub_gateway, sync
 
 import mcp_client.chat as chat
 from mcp_client.chat import ChatSession
@@ -101,3 +101,46 @@ async def test_dispatch_local_handles_bare_slash():
     # A real local command still dispatches -- the guard didn't break the happy path.
     assert await session._dispatch_local("/refresh") is True
     assert called is True
+
+
+@sync
+async def test_refresh_completions_expands_by_content_shape():
+    """Completion expansion is driven by content shape, not the resource name.
+
+    A list body expands into item completions (with per-category meta); a non-list body
+    and an unreadable resource both contribute the resource's own name -- the latter is
+    the read-failure fallback (the resource stays mentionable rather than vanishing).
+    """
+
+    def fake_read(uri):
+        uri = str(uri)
+        if uri == "data://datasets":  # categorized list provider -> "Dataset" items
+            return ["ADPSFC", "AMSU"]
+        if uri == "data://things":  # uncategorized list provider -> generic "Item"s
+            return ["x"]
+        if uri == "data://variable-aliases":  # dict body -> offered by name
+            return {"temperature": {"DEFAULT": "T"}}
+        raise RuntimeError("boom")  # unreadable
+
+    gw = stub_gateway(
+        resources=[
+            resource("list_datasets", "data://datasets"),
+            resource("things", "data://things"),
+            resource("variable_aliases", "data://variable-aliases"),
+            resource("broken", "data://broken"),
+        ],
+    )
+    gw.read_resource = AsyncMock(side_effect=fake_read)
+
+    handler: Any = SimpleNamespace(mcp=gw)
+    with patch.object(ChatSession, "_build_session", lambda _self: None):
+        session = ChatSession(handler)
+
+    await session.refresh_completions()
+
+    assert set(session.completer.resource_items) == {
+        ("ADPSFC", "Dataset"),
+        ("AMSU", "Dataset"),
+        ("x", "Item"),
+        ("variable_aliases", "Resource"),
+    }
