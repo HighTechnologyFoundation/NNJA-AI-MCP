@@ -143,4 +143,5 @@ async def test_refresh_completions_expands_by_content_shape():
         ("AMSU", "Dataset"),
         ("x", "Item"),
         ("variable_aliases", "Resource"),
+        ("broken", "Resource"),  # read failed -> offered by name, not dropped
     }

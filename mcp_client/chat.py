@@ -288,10 +288,12 @@ class ChatSession:
                     content = await self.mcp.read_resource(str(res.uri))
                 except Exception as e:
                     logger.debug(
-                        "Could not read resource %s during completion refresh: %s",
+                        "Could not read resource %s during completion refresh; "
+                        "offering it by name: %s",
                         res.name,
                         e,
                     )
+                    all_items.append((res.name, meta))
                     continue
 
                 if isinstance(content, list):
