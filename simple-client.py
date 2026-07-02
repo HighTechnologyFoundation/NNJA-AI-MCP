@@ -144,6 +144,8 @@ def plot_json_data(json_data: str):
     plt.title(f"AMSU Brightness Temperature for {plot_col}")
     plt.xlabel("Longitude")
     plt.ylabel("Latitude")
+    # Opens an interactive window and blocks until you close it; the rest of main()
+    # (the stats and correlation sections) runs only after the window is closed.
     plt.show()
 
 
