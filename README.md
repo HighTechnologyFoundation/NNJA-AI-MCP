@@ -30,6 +30,11 @@ The MCP server exposes the following tools to connected LLMs:
 > The server uses fuzzy matching for variable names and searches for valid dataset names. 
 If you (or the AI) make a typo, the server will automatically find the closest valid match!
 
+> [!NOTE]
+> The data-loading tools estimate the size of a request and, on clients that support
+elicitation (like this CLI's `--chat`), ask you to confirm any load larger than ~500 MB
+before fetching it. Decline and the tool reports the load was cancelled.
+
 ## Quick Start
 
 ### Prerequisites
