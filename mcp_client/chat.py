@@ -19,7 +19,6 @@ from rich.markdown import Markdown
 
 from mcp_client.handlers import GeminiQueryHandler
 from mcp_client.nnja_contract import (
-    DATASET_LIST_RESOURCE_HINT,
     DATASET_LIST_RESOURCE_URI_PREFIX,
     DATASET_META_LABEL,
 )
@@ -275,44 +274,34 @@ class ChatSession:
             self.completer.update_prompts(prompts)
             self.autosuggester.prompt_dict = {p.name: p for p in prompts}
 
-            # Update resources and nested items from list providers
+            # Update resources and their nested items. A resource is expanded into its
+            # inner items only when its content is actually a list (e.g. data://datasets
+            # -> list[str]); every other case -- a non-list body, or a resource we could
+            # not read -- contributes the resource's own name as the completion. Driving
+            # this off the content shape rather than a substring in the resource name
+            # avoids misclassifying resources (and the name is itself a valid @-mention).
             all_items = []
 
             for res in resources:
                 meta = self.get_meta_for_resource(res)
-                is_list_provider = (
-                    "list" in res.name.lower()
-                    or DATASET_LIST_RESOURCE_HINT in res.name.lower()
-                )
+                try:
+                    content = await self.mcp.read_resource(str(res.uri))
+                except Exception as e:
+                    logger.debug(
+                        "Could not read resource %s during completion refresh: %s",
+                        res.name,
+                        e,
+                    )
+                    continue
 
-                # If it's a list provider, fetch the items inside it
-                if is_list_provider:
-                    try:
-                        content = await self.mcp.read_resource(str(res.uri))
-
-                        # Items inside a list provider:
-                        #   an uncategorized provider's items are generic "Item"s
-                        #   a categorized item (e.g. "Dataset") keeps its name
-                        item_meta = "Item" if meta == "Resource" else meta
-
-                        if isinstance(content, list):
-                            all_items.extend([(str(i), item_meta) for i in content])
-                        elif isinstance(content, str) and "\n" in content:
-                            all_items.extend(
-                                [
-                                    (line.strip(), item_meta)
-                                    for line in content.split("\n")
-                                    if line.strip()
-                                ]
-                            )
-                    except Exception as e:
-                        logger.debug(
-                            "Skipping list provider %s during completion refresh: %s",
-                            res.name,
-                            e,
-                        )
+                if isinstance(content, list):
+                    # A list provider: expand its items into completions.
+                    #   an uncategorized provider's items are generic "Item"s
+                    #   a categorized item (e.g. "Dataset") keeps its name
+                    item_meta = "Item" if meta == "Resource" else meta
+                    all_items.extend((str(i), item_meta) for i in content)
                 else:
-                    # Add the resource name itself only if it's not a list provider
+                    # dict / scalar / text: the resource itself is the completion.
                     all_items.append((res.name, meta))
 
             # Deduplicate items while preserving metadata
