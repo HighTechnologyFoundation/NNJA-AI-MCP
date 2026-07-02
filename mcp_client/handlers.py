@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import shlex
 
 import mcp.types as types
@@ -20,6 +21,28 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+
+# Trailing punctuation attached to an @-mention (e.g. "@datasets." or "@datasets,").
+# Resource names/URIs and dataset IDs all *end* in an alphanumeric ("datasets",
+# "data://datasets", "conv-adpsfc-NC000007"), so a trailing run of non-alphanumerics is
+# always punctuation the user appended, never part of the identifier. (Punctuation
+# *before* the "@" is a separate case the completer never produces; not handled here.)
+_MENTION_TRAILING_PUNCT = re.compile(r"[^A-Za-z0-9]+$")
+
+
+def _extract_mentions(query: str) -> set[str]:
+    """Return the @-mentioned resource/dataset names in `query`, trailing punctuation stripped.
+
+    Splits on whitespace, keeps the `@...` tokens, drops the leading `@`, and strips any
+    trailing punctuation so hand-typed mentions like "@datasets." still match a resource
+    named "datasets". Empty results (a bare "@") are dropped.
+    """
+    return {
+        stripped
+        for word in query.split()
+        if word.startswith("@")
+        and (stripped := _MENTION_TRAILING_PUNCT.sub("", word[1:]))
+    }
 
 
 class GeminiQueryHandler:
@@ -78,7 +101,7 @@ class GeminiQueryHandler:
 
     async def _extract_resources(self, query: str) -> str:
         """Extract resource mentions from query and fetch their content."""
-        mentions = {word[1:] for word in query.split() if word.startswith("@")}
+        mentions = _extract_mentions(query)
         if not mentions:
             return ""
 

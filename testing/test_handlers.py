@@ -11,6 +11,37 @@ from unittest.mock import AsyncMock
 import pytest
 from _fakes import bare_handler, prompt, resource, stub_gateway, sync, text_message
 
+from mcp_client.handlers import _extract_mentions
+
+# _extract_mentions
+
+
+def test_extract_mentions_strips_trailing_punctuation():
+    # A clean mention is unchanged; trailing punctuation the user appended is stripped
+    # so the mention still matches a resource named "schema".
+    assert _extract_mentions("about @schema") == {"schema"}
+    assert _extract_mentions("about @schema.") == {"schema"}
+    assert _extract_mentions("compare @schema, please") == {"schema"}
+    assert _extract_mentions("see @schema!") == {"schema"}
+    assert _extract_mentions("@schema; @datasets.") == {"schema", "datasets"}
+
+
+def test_extract_mentions_preserves_uri_and_id_shapes():
+    # ':' and '/' are structural in URIs and '-' in dataset IDs -- none are trailing,
+    # so the identifier survives intact.
+    assert _extract_mentions("@data://datasets") == {"data://datasets"}
+    assert _extract_mentions("@conv-adpsfc-NC000007.") == {"conv-adpsfc-NC000007"}
+
+
+def test_extract_mentions_ignores_non_mentions():
+    assert _extract_mentions("no mentions here") == set()
+    assert _extract_mentions("email me at a@b.com") == set()  # not a leading '@' token
+    assert _extract_mentions("bare @ sign") == set()  # bare '@' yields nothing
+    # Punctuation *before* the '@' is deliberately not handled (the token fails
+    # startswith('@')).
+    assert _extract_mentions("wrap(@schema)") == set()
+
+
 # _extract_resources
 
 
@@ -31,6 +62,21 @@ async def test_extract_resources_matches_resource_by_name():
     handler = bare_handler(gw)
 
     out = await handler._extract_resources("tell me about @schema")
+
+    assert '<document name="schema">' in out
+    assert "SCHEMA TEXT" in out
+
+
+@sync
+async def test_extract_resources_matches_despite_trailing_punctuation():
+    # End-to-end guard for the fix: a mention with attached trailing punctuation still
+    # resolves and injects its content (previously "@schema." matched nothing).
+    gw = stub_gateway(
+        resources=[resource("schema", "data://schema")], read="SCHEMA TEXT"
+    )
+    handler = bare_handler(gw)
+
+    out = await handler._extract_resources("tell me about @schema.")
 
     assert '<document name="schema">' in out
     assert "SCHEMA TEXT" in out
