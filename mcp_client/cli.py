@@ -32,7 +32,9 @@ def parse_args():
         help="start an AI-powered chat with MCP server integration",
     )
 
-    # Optional argument for overriding the Gemini model
+    # Optional argument for overriding the Gemini model.
+    # The default in the help text mirrors handlers.DEFAULT_GEMINI_MODEL -- keep the two
+    # in sync (not imported here: that would pull google-genai/dotenv in at arg-parse time).
     parser.add_argument(
         "--model",
         default=None,
