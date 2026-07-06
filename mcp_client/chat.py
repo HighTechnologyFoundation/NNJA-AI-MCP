@@ -16,6 +16,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.text import Text
 
 from mcp_client.handlers import GeminiQueryHandler
 from mcp_client.nnja_contract import (
@@ -354,8 +355,10 @@ class ChatSession:
     async def _run_query(self, query: str) -> str:
         spinner = asyncio.create_task(_show_thinking(paused=self.pause_spinner))
         try:
-            # Process the query through the handler and MCP
-            return await self.handler.process_query(query)
+            # Process the query through the handler and MCP, surfacing each tool call live
+            return await self.handler.process_query(
+                query, on_tool_call=self._print_tool_call
+            )
         finally:
             spinner.cancel()
             try:
@@ -363,6 +366,21 @@ class ChatSession:
                 await spinner
             except asyncio.CancelledError:
                 pass
+
+    def _print_tool_call(self, name: str, args: dict) -> None:
+        """Announce an MCP tool call mid-query, styled to stand apart from the answer.
+
+        Fired by the handler's tool-calling loop while the "thinking" spinner is running,
+        so we first wipe the spinner's current line (it draws with a bare '\\r') before
+        printing; the spinner redraws below on its next tick.
+        """
+        print("\r" + " " * 60 + "\r", end="", flush=True)
+        shown = ", ".join(f"{k}={v!r}" for k, v in args.items())
+        line = Text(" tool ", style="bold white on magenta")  # a badge, hard to miss
+        line.append(" ")
+        line.append(name, style="bold magenta")
+        line.append(f"({shown})", style="dim")
+        self.console.print(line)
 
     async def _handle_refresh(self) -> None:
         self.mcp.invalidate_cache()

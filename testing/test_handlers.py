@@ -172,7 +172,9 @@ async def test_process_command_bad_quotes_raises():
 async def test_process_query_returns_text_when_present():
     handler = bare_handler(stub_gateway())
     handler.chat = SimpleNamespace(
-        send_message=AsyncMock(return_value=SimpleNamespace(text="the answer"))
+        send_message=AsyncMock(
+            return_value=SimpleNamespace(text="the answer", function_calls=[])
+        )
     )
 
     assert await handler.process_query("hello") == "the answer"
@@ -182,7 +184,7 @@ async def test_process_query_returns_text_when_present():
 async def test_process_query_empty_response_surfaces_finish_reason(caplog):
     handler = bare_handler(stub_gateway())
     response = SimpleNamespace(
-        text="", candidates=[SimpleNamespace(finish_reason="SAFETY")]
+        text="", candidates=[SimpleNamespace(finish_reason="SAFETY")], function_calls=[]
     )
     handler.chat = SimpleNamespace(send_message=AsyncMock(return_value=response))
 
@@ -196,10 +198,47 @@ async def test_process_query_empty_response_surfaces_finish_reason(caplog):
 @sync
 async def test_process_query_empty_response_without_candidates():
     handler = bare_handler(stub_gateway())
-    response = SimpleNamespace(text="", candidates=[])
+    response = SimpleNamespace(text="", candidates=[], function_calls=[])
     handler.chat = SimpleNamespace(send_message=AsyncMock(return_value=response))
 
     assert await handler.process_query("hello") == "(no response)"
+
+
+@sync
+async def test_process_query_runs_tool_loop_and_announces_calls():
+    # First model turn requests a tool; second returns text. The manual loop must execute
+    # the tool via MCP, fire on_tool_call, feed the result back, and return the final text.
+    handler = bare_handler(stub_gateway())
+    handler.mcp.client_session = SimpleNamespace(
+        call_tool=AsyncMock(
+            return_value=SimpleNamespace(
+                structuredContent=None,
+                content=[SimpleNamespace(text='{"datasets": ["a", "b"]}')],
+                isError=False,
+            )
+        )
+    )
+    call = SimpleNamespace(name="available_datasets", args={})
+    handler.chat = SimpleNamespace(
+        send_message=AsyncMock(
+            side_effect=[
+                SimpleNamespace(function_calls=[call], candidates=[]),
+                SimpleNamespace(function_calls=[], text="here they are", candidates=[]),
+            ]
+        )
+    )
+
+    announced = []
+    result = await handler.process_query(
+        "list datasets", on_tool_call=lambda n, a: announced.append((n, a))
+    )
+
+    assert result == "here they are"
+    assert announced == [("available_datasets", {})]  # the callback saw the tool call
+    handler.mcp.client_session.call_tool.assert_awaited_once_with(
+        "available_datasets", {}
+    )
+    assert handler.chat.send_message.await_count == 2  # query turn + tool-result turn
 
 
 # process_query /command + @mention interaction
@@ -216,7 +255,9 @@ async def test_command_path_extracts_from_original_not_expanded_prompt():
     )
     handler = bare_handler(gw)
     handler.chat = SimpleNamespace(
-        send_message=AsyncMock(return_value=SimpleNamespace(text="ok", candidates=[]))
+        send_message=AsyncMock(
+            return_value=SimpleNamespace(text="ok", candidates=[], function_calls=[])
+        )
     )
 
     seen = {}
