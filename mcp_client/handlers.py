@@ -2,6 +2,8 @@ import logging
 import os
 import re
 import shlex
+from collections.abc import Callable
+from typing import Any
 
 import mcp.types as types
 from dotenv import load_dotenv
@@ -21,6 +23,10 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+
+# Cap on tool-calling rounds per query in the manual function-calling loop -- a runaway
+# guard, not a normal limit (typical queries use 1-2 rounds).
+MAX_TOOL_ROUNDS = 8
 
 # Trailing punctuation attached to an @-mention (e.g. "@datasets." or "@datasets,").
 # Resource names/URIs and dataset IDs all *end* in an alphanumeric ("datasets",
@@ -69,11 +75,18 @@ class GeminiQueryHandler:
         # Use the model provided by CLI or env var or the default
         self.model = model or os.getenv("GEMINI_MODEL") or DEFAULT_GEMINI_MODEL
 
-        # Create an asynchronous chat session with MCP tools enabled for the model
+        # Create an asynchronous chat session with MCP tools enabled for the model.
+        # Automatic function calling is disabled so process_query drives the tool-calling
+        # loop itself -- that is what lets the CLI surface each tool call as it happens
+        # (automatic mode hides them). The MCP session is still passed so the model gets
+        # the tool declarations; only the execution is ours.
         self.chat = self.gemini.aio.chats.create(
             model=self.model,
             config=genai.types.GenerateContentConfig(
                 tools=[mcp.client_session],  # Expose MCP tools to the LLM
+                automatic_function_calling=genai.types.AutomaticFunctionCallingConfig(
+                    disable=True
+                ),
             ),
         )
 
@@ -190,8 +203,18 @@ class GeminiQueryHandler:
                 combined_prompt += f"{msg.role}: {msg.content}\n"
         return combined_prompt
 
-    async def process_query(self, query: str) -> str:
-        """Process a query using Gemini and available MCP tools."""
+    async def process_query(
+        self,
+        query: str,
+        on_tool_call: Callable[[str, dict], None] | None = None,
+    ) -> str:
+        """Process a query using Gemini and available MCP tools.
+
+        The tool-calling loop is run manually (automatic function calling is disabled on
+        `self.chat`), so `on_tool_call(name, args)`, if provided, fires for each tool the
+        model invokes -- letting the caller surface tool calls live. Otherwise identical to
+        automatic function calling: same requests, same multi-turn history on `self.chat`.
+        """
         original_query = query
 
         # Process a /prompt command if present
@@ -215,7 +238,26 @@ class GeminiQueryHandler:
                 f"User Query: {query}"
             )
 
+        # Manual function-calling loop: send -> if the model requests tool(s), run them via
+        # MCP (announcing each through on_tool_call) and send the results back -> repeat
+        # until it returns text. Parallel calls in one round are batched into one reply.
         response = await self.chat.send_message(query)
+        for _ in range(MAX_TOOL_ROUNDS):
+            calls = response.function_calls or []
+            if not calls:
+                break
+            tool_responses: list[Any] = []
+            for call in calls:
+                name = call.name
+                if name is None:  # a real function call always has a name
+                    continue
+                args = dict(call.args or {})
+                if on_tool_call is not None:
+                    on_tool_call(name, args)
+                tool_responses.append(await self._call_mcp_tool(name, args))
+            response = await self.chat.send_message(tool_responses)
+        else:
+            return "Error: stopped after too many tool-calling rounds."
 
         if not response.text:
             reason = None
@@ -225,3 +267,23 @@ class GeminiQueryHandler:
             return f"(no response{f' - {reason}' if reason else ''})"
 
         return response.text
+
+    async def _call_mcp_tool(self, name: str, args: dict) -> genai.types.Part:
+        """Execute one MCP tool and wrap its result as a Gemini function-response Part."""
+        try:
+            result = await self.mcp.client_session.call_tool(name, args)
+        except Exception as e:  # a tool error must not kill the loop
+            return genai.types.Part.from_function_response(
+                name=name, response={"error": f"{type(e).__name__}: {e}"}
+            )
+        structured = getattr(result, "structuredContent", None)
+        if structured is not None:
+            payload = structured
+        else:
+            payload = "".join(
+                getattr(block, "text", "") for block in (result.content or [])
+            )
+        key = "error" if getattr(result, "isError", False) else "result"
+        return genai.types.Part.from_function_response(
+            name=name, response={key: payload}
+        )

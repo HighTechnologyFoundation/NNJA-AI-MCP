@@ -28,7 +28,7 @@ from mcp_client.chat import ChatSession
 async def test_ctrl_c_cancels_query_and_restores_handler():
     started = asyncio.Event()
 
-    async def blocking_query(_query):
+    async def blocking_query(_query, **_kwargs):  # accept on_tool_call etc.
         started.set()
         await asyncio.Event().wait()  # never completes -> query stays "in flight"
 
