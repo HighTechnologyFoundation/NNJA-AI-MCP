@@ -207,7 +207,8 @@ async def test_process_query_empty_response_without_candidates():
 @sync
 async def test_process_query_runs_tool_loop_and_announces_calls():
     # First model turn requests a tool; second returns text. The manual loop must execute
-    # the tool via MCP, fire on_tool_call, feed the result back, and return the final text.
+    # the tool via MCP, fire on_tool_call (start) and on_tool_done (with elapsed time), feed
+    # the result back, and return the final text.
     handler = bare_handler(stub_gateway())
     handler.mcp.client_session = SimpleNamespace(
         call_tool=AsyncMock(
@@ -228,13 +229,20 @@ async def test_process_query_runs_tool_loop_and_announces_calls():
         )
     )
 
-    announced = []
+    announced, done = [], []
     result = await handler.process_query(
-        "list datasets", on_tool_call=lambda n, a: announced.append((n, a))
+        "list datasets",
+        on_tool_call=lambda n, a: announced.append((n, a)),
+        on_tool_done=lambda n, elapsed: done.append((n, elapsed)),
     )
 
     assert result == "here they are"
-    assert announced == [("available_datasets", {})]  # the callback saw the tool call
+    assert announced == [("available_datasets", {})]  # start callback saw the tool call
+    # done callback fired once, after execution, with the tool name + an elapsed time
+    # (value is wall-clock, so only assert its type/sign, not an exact duration)
+    assert len(done) == 1
+    assert done[0][0] == "available_datasets"
+    assert isinstance(done[0][1], float) and done[0][1] >= 0.0
     handler.mcp.client_session.call_tool.assert_awaited_once_with(
         "available_datasets", {}
     )

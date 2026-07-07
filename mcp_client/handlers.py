@@ -3,6 +3,7 @@ import os
 import re
 import shlex
 from collections.abc import Callable
+from time import perf_counter
 from typing import Any
 
 import mcp.types as types
@@ -207,13 +208,16 @@ class GeminiQueryHandler:
         self,
         query: str,
         on_tool_call: Callable[[str, dict], None] | None = None,
+        on_tool_done: Callable[[str, float], None] | None = None,
     ) -> str:
         """Process a query using Gemini and available MCP tools.
 
         The tool-calling loop is run manually (automatic function calling is disabled on
         `self.chat`), so `on_tool_call(name, args)`, if provided, fires for each tool the
-        model invokes -- letting the caller surface tool calls live. Otherwise identical to
-        automatic function calling: same requests, same multi-turn history on `self.chat`.
+        model invokes, and `on_tool_done(name, elapsed)` fires after each tool completes
+        (elapsed = its execution time in seconds) -- letting the caller surface tool calls
+        live. Otherwise identical to automatic function calling: same requests, same
+        multi-turn history on `self.chat`.
         """
         original_query = query
 
@@ -254,7 +258,11 @@ class GeminiQueryHandler:
                 args = dict(call.args or {})
                 if on_tool_call is not None:
                     on_tool_call(name, args)
-                tool_responses.append(await self._call_mcp_tool(name, args))
+                start = perf_counter()
+                part = await self._call_mcp_tool(name, args)
+                if on_tool_done is not None:
+                    on_tool_done(name, perf_counter() - start)
+                tool_responses.append(part)
             response = await self.chat.send_message(tool_responses)
         else:
             return "Error: stopped after too many tool-calling rounds."
