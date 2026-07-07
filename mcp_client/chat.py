@@ -376,10 +376,12 @@ class ChatSession:
         """
         print("\r" + " " * 60 + "\r", end="", flush=True)
         shown = ", ".join(f"{k}={v!r}" for k, v in args.items())
-        line = Text(" tool ", style="bold white on magenta")  # a badge, hard to miss
-        line.append(" ")
-        line.append(name, style="bold magenta")
-        line.append(f"({shown})", style="dim")
+        # Label + name in bright_blue so the whole line reads as a clear, easy-to-see step.
+        # Args stay dim -- visible line, muted detail.
+        line = Text()
+        line.append("  [tool] ", style="bright_blue")
+        line.append(name, style="bright_blue")
+        line.append(f"({shown})", style="dim bright_blue")
         self.console.print(line)
 
     async def _handle_refresh(self) -> None:
