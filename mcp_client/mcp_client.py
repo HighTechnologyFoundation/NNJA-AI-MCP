@@ -3,7 +3,7 @@ import pathlib
 import re
 import signal
 import sys
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, suppress
 from typing import Any, Self
 
 import mcp.types as types
@@ -88,7 +88,29 @@ class MCPClient:
             # Perform MCP initialization handshake
             await client_session.initialize()
             return client_session
-        except Exception as e:
+        except BaseException as e:
+            # A failed connect surfaces messily: over HTTP a down server bubbles up as a
+            # CancelledError from the transport's task group (not an Exception), and any
+            # partially-entered contexts are left on the stack because __aexit__ isn't
+            # called when __aenter__ raises. Close them here (suppressing teardown noise),
+            # let genuine interrupts through, then raise one friendly, actionable error.
+            with suppress(BaseException):
+                await self.exit_stack.aclose()
+            if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                raise
+            if self.use_http:
+                # Server-not-running is the likeliest HTTP connect failure at a demo;
+                # mirror the actionable hint the example scripts give (client.py /
+                # testing/_client.py). The propagated CancelledError carries no useful
+                # "connection refused" text, so appending it would only add noise.
+                raise RuntimeError(
+                    f"Could not reach the MCP server at {self.target}. "
+                    "Is it running? Start it in HTTP mode first:\n"
+                    "- PowerShell: $env:MCP_TRANSPORT='http'; uv run server.py\n"
+                    "- bash/zsh:   MCP_TRANSPORT=http uv run server.py\n"
+                    "- Docker:     docker build -t nnja-ai-mcp .\n"
+                    "              docker run -p 8000:8000 nnja-ai-mcp"
+                ) from e
             raise RuntimeError(f"Failed to connect to MCP server: {e}") from e
 
     async def _handle_elicitation(
