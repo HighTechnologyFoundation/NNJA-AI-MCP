@@ -3,6 +3,7 @@ import itertools
 import logging
 import signal
 from collections.abc import Awaitable, Callable
+from time import perf_counter
 from typing import TypedDict
 
 from mcp.types import Resource
@@ -16,6 +17,9 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.style import (
+    Style as RichStyle,  # aliased: prompt_toolkit also exports `Style`
+)
 from rich.text import Text
 
 from mcp_client.handlers import GeminiQueryHandler
@@ -177,11 +181,19 @@ class CommandAutoSuggest(AutoSuggest):
         return None
 
 
+# Style for the live "running..." tool timer -- dim bright_blue to match the [tool] and
+# "done" lines. Rendered to ANSI in _current_status because the spinner writes raw to
+# stdout (not through the rich Console), so we can't pass it a rich style name directly.
+_RUNNING_STYLE = RichStyle.parse("dim bright_blue")
+
+
 async def _show_thinking(
-    message: str = "Assistant is thinking", paused: asyncio.Event | None = None
+    message: str = "Assistant is thinking",
+    paused: asyncio.Event | None = None,
+    status: Callable[[], str | None] | None = None,
 ) -> None:
     """Animate a spinner until cancelled, clearing its own line on exit."""
-    blank = "\r" + " " * (len(message) + 6) + "\r"
+    blank = "\r\033[K"  # ANSI code to clear the current line
     was_paused = False
     try:
         for frame in itertools.cycle("|/-\\"):
@@ -189,7 +201,11 @@ async def _show_thinking(
             if is_paused and not was_paused:
                 print(blank, end="", flush=True)  # clear once on pausing
             elif not is_paused:
-                print(f"\r{message}... {frame}", end="", flush=True)
+                override = status() if status else None
+                text = override if override is not None else f"{message}... {frame}"
+                # clear-to-EOL each tick: the line is variable width (long "thinking..."
+                # vs a short timer), so a bare \r would leave a stale tail
+                print("\r\033[K" + text, end="", flush=True)
             was_paused = is_paused
             await asyncio.sleep(0.1)
     except asyncio.CancelledError:
@@ -224,6 +240,7 @@ class ChatSession:
         self.completer.set_local_commands(self.local_commands)
         self.session = self._build_session()
         self.pause_spinner = pause_spinner
+        self._active_tool: tuple[str, float] | None = None  # (tool_name, start_time)
 
     async def run(self) -> None:
         self.console.print("\nMCP Client's Chat Started!", style="bold")
@@ -353,7 +370,9 @@ class ChatSession:
             signal.signal(signal.SIGINT, previous)  # restore for the idle prompt
 
     async def _run_query(self, query: str) -> str:
-        spinner = asyncio.create_task(_show_thinking(paused=self.pause_spinner))
+        spinner = asyncio.create_task(
+            _show_thinking(paused=self.pause_spinner, status=self._current_status)
+        )
         try:
             # Process the query through the handler and MCP, surfacing each tool call live
             return await self.handler.process_query(
@@ -369,6 +388,15 @@ class ChatSession:
             except asyncio.CancelledError:
                 pass
 
+    def _current_status(self) -> str | None:
+        if self._active_tool is None:
+            return None
+        _name, start = self._active_tool
+        text = f"       ↳ running... {perf_counter() - start:.1f}s"
+        return _RUNNING_STYLE.render(
+            text
+        )  # dim bright_blue, matching the [tool]/done lines
+
     def _print_tool_call(self, name: str, args: dict) -> None:
         """Announce an MCP tool call mid-query, styled to stand apart from the answer.
 
@@ -376,7 +404,7 @@ class ChatSession:
         so we first wipe the spinner's current line (it draws with a bare '\\r') before
         printing; the spinner redraws below on its next tick.
         """
-        print("\r" + " " * 60 + "\r", end="", flush=True)
+        print("\r\033[K", end="", flush=True)  # wipe spinner line
         shown = ", ".join(f"{k}={v!r}" for k, v in args.items())
         # Label + name in bright_blue so the whole line reads as a clear, easy-to-see step.
         # Args stay dim -- visible line, muted detail.
@@ -385,6 +413,7 @@ class ChatSession:
         line.append(name, style="bright_blue")
         line.append(f"({shown})", style="dim bright_blue")
         self.console.print(line)
+        self._active_tool = (name, perf_counter())  # start the timer
 
     def _print_tool_done(self, name: str, elapsed: float) -> None:
         """Announce an MCP tool call's completion time.
@@ -393,7 +422,8 @@ class ChatSession:
         so we first wipe the spinner's current line (it draws with a bare '\\r') before
         printing; the spinner redraws below on its next tick.
         """
-        print("\r" + " " * 60 + "\r", end="", flush=True)  # wipe spinner line
+        print("\r\033[K", end="", flush=True)  # wipe spinner line
+        self._active_tool = None  # clear the timer
         self.console.print(
             Text(f"       ↳ done in {elapsed:.1f}s", style="dim bright_blue")
         )
