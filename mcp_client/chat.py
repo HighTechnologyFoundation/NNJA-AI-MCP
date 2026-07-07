@@ -357,7 +357,9 @@ class ChatSession:
         try:
             # Process the query through the handler and MCP, surfacing each tool call live
             return await self.handler.process_query(
-                query, on_tool_call=self._print_tool_call
+                query,
+                on_tool_call=self._print_tool_call,
+                on_tool_done=self._print_tool_done,
             )
         finally:
             spinner.cancel()
@@ -383,6 +385,18 @@ class ChatSession:
         line.append(name, style="bright_blue")
         line.append(f"({shown})", style="dim bright_blue")
         self.console.print(line)
+
+    def _print_tool_done(self, name: str, elapsed: float) -> None:
+        """Announce an MCP tool call's completion time.
+
+        Fired by the handler's tool-calling loop while the "thinking" spinner is running,
+        so we first wipe the spinner's current line (it draws with a bare '\\r') before
+        printing; the spinner redraws below on its next tick.
+        """
+        print("\r" + " " * 60 + "\r", end="", flush=True)  # wipe spinner line
+        self.console.print(
+            Text(f"       ↳ done in {elapsed:.1f}s", style="dim bright_blue")
+        )
 
     async def _handle_refresh(self) -> None:
         self.mcp.invalidate_cache()
