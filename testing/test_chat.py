@@ -145,3 +145,65 @@ async def test_refresh_completions_expands_by_content_shape():
         ("variable_aliases", "Resource"),
         ("broken", "Resource"),  # read failed -> offered by name, not dropped
     }
+
+
+@sync
+async def test_expand_distinguishes_no_query_from_no_calls():
+    """`/expand` tells three states apart via the None-vs-empty sentinel.
+
+    `_last_turn_calls` is None until the first query runs, [] after a turn that made
+    no tool calls, and a populated list otherwise. A length check alone can't separate
+    the first two (both are falsy), so the handler keys off `is None`. This pins that
+    distinction -- collapsing the sentinel to a plain [] would silently mislabel the
+    "no query yet" state as "the last response made no tool calls".
+    """
+    handler: Any = SimpleNamespace(mcp=None)
+    with patch.object(ChatSession, "_build_session", lambda _self: None):
+        session = ChatSession(handler)
+
+    # None (fresh session, no query has run) -> "no tool calls yet".
+    assert session._last_turn_calls is None
+    out = io.StringIO()
+    with redirect_stdout(out):
+        await session._handle_expand()
+    assert "no tool calls yet" in out.getvalue().lower()
+
+    # [] (a turn ran but called no tools) -> a distinct message.
+    session._last_turn_calls = []
+    out = io.StringIO()
+    with redirect_stdout(out):
+        await session._handle_expand()
+    assert "made no tool calls" in out.getvalue().lower()
+
+    # Recorded calls -> the FULL args are shown (the point of /expand: recover the
+    # detail the live line clips to one row).
+    session._last_turn_calls = [("load_data_sample", {"dataset": "seviri"}, 2.5)]
+    out = io.StringIO()
+    with redirect_stdout(out):
+        await session._handle_expand()
+    text = out.getvalue()
+    assert "load_data_sample" in text
+    assert "seviri" in text
+
+
+@sync
+async def test_tool_call_callbacks_record_the_turn():
+    """Driving a call start+done appends (name, args, elapsed) to the turn record.
+
+    `args` is known only at the start (`_print_tool_call`) and `elapsed` only at the end
+    (`_print_tool_done`), so the start stashes name+args in `_active_tool` for the done
+    callback to pair with elapsed. This locks that carry-forward and the `_active_tool`
+    3-tuple shape (which `_current_status` also unpacks).
+    """
+    handler: Any = SimpleNamespace(mcp=None)
+    with patch.object(ChatSession, "_build_session", lambda _self: None):
+        session = ChatSession(handler)
+
+    session._last_turn_calls = []  # simulate _respond's per-turn reset
+    with redirect_stdout(io.StringIO()):  # swallow the printed [tool]/done lines
+        session._print_tool_call("calculate_lapse_rate", {"time": "2021-01-01"})
+        session._print_tool_done("calculate_lapse_rate", 1.2)
+
+    assert session._last_turn_calls == [
+        ("calculate_lapse_rate", {"time": "2021-01-01"}, 1.2)
+    ]

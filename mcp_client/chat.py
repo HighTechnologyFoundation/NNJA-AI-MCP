@@ -236,11 +236,16 @@ class ChatSession:
                 "description": "Refresh auto-completion suggestions",
                 "handler": self._handle_refresh,
             },
+            "expand": {
+                "description": "Show all tool calls made in the last turn, with their arguments and elapsed times",
+                "handler": self._handle_expand,
+            },
         }
         self.completer.set_local_commands(self.local_commands)
         self.session = self._build_session()
         self.pause_spinner = pause_spinner
-        self._active_tool: tuple[str, float] | None = None  # (tool_name, start_time)
+        self._active_tool: tuple[str, dict, float] | None = None  # (tool, args, start)
+        self._last_turn_calls: list[tuple[str, dict, float]] | None = None
 
     async def run(self) -> None:
         self.console.print("\nMCP Client's Chat Started!", style="bold")
@@ -347,6 +352,8 @@ class ChatSession:
         return True
 
     async def _respond(self, query: str) -> None:
+        self._last_turn_calls = []  # reset for this turn
+
         loop = asyncio.get_running_loop()
         task = asyncio.create_task(self._run_query(query))
 
@@ -391,7 +398,7 @@ class ChatSession:
     def _current_status(self) -> str | None:
         if self._active_tool is None:
             return None
-        _name, start = self._active_tool
+        _name, _args, start = self._active_tool
         text = f"       ↳ running... {perf_counter() - start:.1f}s"
         return _RUNNING_STYLE.render(
             text
@@ -412,8 +419,8 @@ class ChatSession:
         line.append("  [tool] ", style="bright_blue")
         line.append(name, style="bright_blue")
         line.append(f"({shown})", style="dim bright_blue")
-        self.console.print(line)
-        self._active_tool = (name, perf_counter())  # start the timer
+        self.console.print(line, no_wrap=True, crop=True, overflow="ellipsis")
+        self._active_tool = (name, args, perf_counter())  # start the timer
 
     def _print_tool_done(self, name: str, elapsed: float) -> None:
         """Announce an MCP tool call's completion time.
@@ -423,6 +430,9 @@ class ChatSession:
         printing; the spinner redraws below on its next tick.
         """
         print("\r\033[K", end="", flush=True)  # wipe spinner line
+        if self._active_tool is not None and self._last_turn_calls is not None:
+            called_name, args, _start = self._active_tool
+            self._last_turn_calls.append((called_name, args, elapsed))
         self._active_tool = None  # clear the timer
         self.console.print(
             Text(f"       ↳ done in {elapsed:.1f}s", style="dim bright_blue")
@@ -432,6 +442,24 @@ class ChatSession:
         self.mcp.invalidate_cache()
         await self.refresh_completions()
         self.console.print("Completions refreshed!", style="dim")
+
+    async def _handle_expand(self) -> None:
+        if self._last_turn_calls is None:
+            self.console.print("No tool calls yet this session.", style="dim")
+            return
+        if not self._last_turn_calls:
+            self.console.print("The last response made no tool calls.", style="dim")
+            return
+        for tool, args, elapsed in self._last_turn_calls:
+            arg_str = ", ".join(f"{k}={v!r}" for k, v in args.items())
+            line = Text()
+            line.append("  [tool] ", style="bright_blue")
+            line.append(tool, style="bright_blue")
+            line.append(f"({arg_str})", style="dim bright_blue")
+            self.console.print(line)
+            self.console.print(
+                f"       ↳ done in {elapsed:.1f}s", style="dim bright_blue"
+            )
 
     def _build_session(self) -> PromptSession:
         return PromptSession(
