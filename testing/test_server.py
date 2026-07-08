@@ -364,3 +364,114 @@ async def test_calculate_trend_propagates_value_error(monkeypatch):
     )
 
     assert result == "Error: bad bounds"
+
+
+# descriptive_stats_dataset / correlation_matrix_dataset
+#
+# The two data tools that previously had no coverage. Like the calculate_trend tests,
+# each is driven by a hand-built DataFrame from a faked _gated_access (no catalog, no
+# network); the assertions target each tool's own logic -- describe().to_json() for
+# stats, and the numeric-only corr() (with its method + empty guards) for correlation.
+
+
+@sync
+async def test_descriptive_stats_returns_describe_json(monkeypatch):
+    # describe() over a numeric column -> its count/mean/min/max land in the JSON.
+    df = pd.DataFrame({"TMBR": [10.0, 20.0, 30.0]})
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    out = json.loads(
+        await server.descriptive_stats_dataset("ds", "2021-01-01", ["temp"], ctx=ctx)
+    )
+
+    assert out["TMBR"]["count"] == 3.0
+    assert out["TMBR"]["mean"] == pytest.approx(20.0)
+    assert out["TMBR"]["min"] == pytest.approx(10.0)
+    assert out["TMBR"]["max"] == pytest.approx(30.0)
+
+
+@sync
+async def test_descriptive_stats_empty_frame_errors(monkeypatch):
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(pd.DataFrame()))
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.descriptive_stats_dataset(
+        "ds", "2021-01-01", ["temp"], ctx=ctx
+    )
+
+    assert result == "Error: No data found for the given criteria."
+
+
+@sync
+async def test_correlation_matrix_drops_non_numeric_and_correlates(monkeypatch):
+    # y = 2x -> perfectly correlated; the non-numeric "label" column is dropped by the
+    # numeric-only filter and must not appear in the matrix.
+    df = pd.DataFrame(
+        {"x": [1.0, 2.0, 3.0], "y": [2.0, 4.0, 6.0], "label": ["a", "b", "c"]}
+    )
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    out = json.loads(
+        await server.correlation_matrix_dataset("ds", "2021-01-01", ["x", "y"], ctx=ctx)
+    )
+
+    assert "label" not in out  # non-numeric column excluded
+    assert out["x"]["x"] == pytest.approx(1.0)  # diagonal
+    assert out["x"]["y"] == pytest.approx(1.0)  # perfectly correlated
+
+
+@sync
+async def test_correlation_matrix_no_numeric_columns_errors(monkeypatch):
+    # A non-empty frame with only non-numeric columns -> the numeric-only guard fires
+    # (distinct from the empty-frame guard).
+    df = pd.DataFrame({"label": ["a", "b", "c"]})
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.correlation_matrix_dataset(
+        "ds", "2021-01-01", ["label"], ctx=ctx
+    )
+
+    assert result == "Error: No numeric columns available for correlation."
+
+
+@sync
+async def test_correlation_matrix_respects_corr_method(monkeypatch):
+    # y = x**2 is a perfect monotonic (but non-linear) relation: Spearman rank
+    # correlation is exactly 1.0 while Pearson is < 1. Asserting ~1.0 with
+    # corr_method="spearman" proves the method is threaded through, not ignored.
+    df = pd.DataFrame({"x": [1.0, 2.0, 3.0, 4.0], "y": [1.0, 4.0, 9.0, 16.0]})
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    out = json.loads(
+        await server.correlation_matrix_dataset(
+            "ds", "2021-01-01", ["x", "y"], corr_method="spearman", ctx=ctx
+        )
+    )
+
+    assert out["x"]["y"] == pytest.approx(1.0)
+
+
+@sync
+async def test_calculate_spectral_index_unknown_dataset_returns_friendly_error(
+    monkeypatch,
+):
+    # The tool resolves the dataset up front (to select the channel set for its guards).
+    # An unknown name makes _resolve_dataset raise ValueError; the tool must catch it and
+    # return a recoverable "Error: ..." string like every sibling tool -- not let it
+    # escape as a hard (isError) tool result, as it did before the resolve was guarded.
+    # A catalog whose search matches nothing is enough to trigger the raise.
+    monkeypatch.setattr(
+        server, "_catalog", SimpleNamespace(search=lambda _q: []), raising=False
+    )
+    ctx = _fake_ctx(supports=False)
+
+    result = await server.calculate_spectral_index(
+        "nonexistent-dataset-xyz", "2023-07-01", "wildfire_risk", ctx=ctx
+    )
+
+    assert result.startswith("Error:")
+    assert "No dataset matching" in result
