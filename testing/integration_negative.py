@@ -49,3 +49,18 @@ expect_error(
     },
     "not supported for index calculation",
 )
+
+# Unknown dataset name on the spectral index -> the guarded resolve returns the
+# friendly "No dataset matching" string, not a hard tool error. Regression guard:
+# calculate_spectral_index used to resolve the dataset outside its try/except, so a
+# bad name escaped as an isError result instead of the recoverable string every other
+# tool returns for the same typo.
+expect_error(
+    "calculate_spectral_index",
+    {
+        "dataset": "nonexistent-dataset-xyz",
+        "time": "2023-07-01",
+        "index_name": "wildfire_risk",
+    },
+    "No dataset matching",
+)

@@ -515,7 +515,10 @@ async def calculate_spectral_index(
         str: A JSON string with the calculated index statistics.
     """
     # Resolve the entered dataset for use in guard conditions
-    resolved_dataset = _resolve_dataset(dataset).name
+    try:
+        resolved_dataset = _resolve_dataset(dataset).name
+    except ValueError as e:
+        return f"Error: {e}"
 
     channels = SPECTRAL_CHANNELS.get(resolved_dataset)
     if channels is None:
