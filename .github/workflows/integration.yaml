@@ -1,0 +1,33 @@
+name: Integration
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'  # Mondays 06:00 UTC
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true     # cache dependency downloads across runs
+
+      - name: Install dependencies
+        run: uv sync --locked --no-default-groups
+
+      - name: Run the integration test suite against a live server
+        run: |
+          MCP_TRANSPORT=http uv run --no-sync server.py &
+          for i in $(seq 1 60); do
+            # /mcp returns 406 to a bare GET, but any HTTP response means it's up
+            # curl without -f treats 406 as success, and fails only on connection refused
+            curl -s --max-time 5 -o /dev/null http://localhost:8000/mcp && ready=1 && break
+            sleep 2
+          done
+          [ -n "$ready" ] || { echo "server never became ready" >&2; exit 1; }
+          uv run --no-sync testing/integration_all.py
