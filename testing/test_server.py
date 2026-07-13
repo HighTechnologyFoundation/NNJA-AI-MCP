@@ -276,6 +276,7 @@ async def test_calculate_trend_perfect_line(monkeypatch):
     assert out["intercept"] == pytest.approx(10.0)
     assert out["start_date"].startswith("2021-01-01")
     assert out["end_date"].startswith("2021-01-03")
+    assert out["units"]["slope_per_day"] == "variable's native units per day"
 
 
 @sync
@@ -470,3 +471,33 @@ async def test_calculate_spectral_index_unknown_dataset_returns_friendly_error(
 
     assert result.startswith("Error:")
     assert "No dataset matching" in result
+
+
+@sync
+async def test_calculate_lapse_rate_computes_categories_and_units(monkeypatch):
+    # Values chosen so the tool's own formula -(T2-T1)/((Z2-Z1)/10000) yields exact
+    # rates: two rows at 5.0 K/km ("Stable") and one at 10.0 K/km ("Unstable"). A 5 km
+    # layer is (Z2-Z1) = 50000 geopotential decimeters (/10000 -> 5 km). Pins the
+    # computed lapse rate, categorization, percentage distribution, and the K/km units
+    # label -- this is the tool's only unit-level coverage (otherwise integration-only).
+    df = pd.DataFrame(
+        {
+            "TMDB_PRLC100000": [288.0, 288.0, 288.0],  # T at 1000 hPa
+            "TMDB_PRLC50000": [263.0, 263.0, 238.0],  # T at 500 hPa; drops 25/25/50 K
+            "GP10_PRLC100000": [1000.0, 1000.0, 1000.0],
+            "GP10_PRLC50000": [51000.0, 51000.0, 51000.0],
+        }
+    )
+    monkeypatch.setattr(server, "_gated_access", _fake_gated_returning(df))
+    ctx = _fake_ctx(supports=False)
+
+    out = json.loads(await server.calculate_lapse_rate("2021-01-01", ctx=ctx))
+
+    assert out["units"] == {
+        "lapse_rate": "K/km",
+        "stability_distribution": "percent of observations",
+    }
+    assert out["summary"]["dominant_condition"] == "Stable"  # 2 of 3 rows
+    assert out["summary"]["mean_lapse_rate"] == pytest.approx(6.67)  # mean(5, 5, 10)
+    assert out["summary"]["sample_size"] == 3
+    assert round(sum(out["stability_distribution"].values())) == 100
