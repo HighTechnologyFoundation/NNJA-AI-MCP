@@ -271,14 +271,9 @@ async def test_calculate_trend_perfect_line(monkeypatch):
     assert out["actual_id"] == "TMBR"  # OBS_DATE / LAT / LON excluded
     assert out["variable"] == "brightness temperature"  # echoes the requested name
     assert out["r_squared"] == pytest.approx(1.0)  # exact line -> perfect fit
-    assert out["slope"] > 0  # increasing series
+    assert out["slope_per_day"] == pytest.approx(10.0)  # increasing series, +10/day
     assert out["mean_value"] == pytest.approx(20.0)
-    # Reconstruct the fitted line in *data* units to validate slope AND intercept
-    # without asserting the opaque per-nanosecond slope literal. Convert dates the
-    # same way the tool does (pd.to_numeric(pd.to_datetime(...)) -> ns since epoch).
-    t = pd.to_numeric(pd.to_datetime(pd.Series(["2021-01-01", "2021-01-03"])))
-    assert out["intercept"] + out["slope"] * t.iloc[0] == pytest.approx(10.0)
-    assert out["intercept"] + out["slope"] * t.iloc[1] == pytest.approx(30.0)
+    assert out["intercept"] == pytest.approx(10.0)
     assert out["start_date"].startswith("2021-01-01")
     assert out["end_date"].startswith("2021-01-03")
 
@@ -299,7 +294,7 @@ async def test_calculate_trend_decreasing_series_has_negative_slope(monkeypatch)
         await server.calculate_trend("ds", "2021-01-01", "2021-01-03", "temp", ctx=ctx)
     )
 
-    assert out["slope"] < 0
+    assert out["slope_per_day"] < 0
     assert out["r_squared"] == pytest.approx(1.0)
 
 

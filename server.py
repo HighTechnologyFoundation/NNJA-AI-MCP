@@ -424,7 +424,7 @@ async def calculate_trend(
         lon_bounds (list[float], optional): Longitude boundaries [min, max].
 
     Returns:
-        str: A JSON string with slope, intercept, r-squared, p-value, and supporting metadata.
+        str: A JSON string with slope-per-day, intercept, r-squared, p-value, and supporting metadata.
     """
 
     try:
@@ -457,15 +457,18 @@ async def calculate_trend(
     if len(df_mean) < 2:
         return "Error: Not enough time points to calculate a trend (need at least 2 dates)."
 
-    df_mean["time_numeric"] = pd.to_numeric(pd.to_datetime(df_mean["OBS_DATE"]))
+    dates = pd.to_datetime(df_mean["OBS_DATE"])
 
-    res = stats.linregress(df_mean["time_numeric"].values, df_mean[actual_var].values)
+    # Days since first observation -> slope = value/day & intercept = fitted value at start_date
+    days_since_start = (dates - dates.min()) / pd.Timedelta(days=1)
+
+    res = stats.linregress(days_since_start.values, df_mean[actual_var].values)
 
     result = {
         "variable": variable,
         "actual_id": actual_var,
-        "slope": float(res.slope),
-        "intercept": float(res.intercept),
+        "slope_per_day": float(res.slope),
+        "intercept": float(res.intercept),  # fitted value at start_date
         "r_squared": float(res.rvalue) ** 2,
         "p_value": float(res.pvalue),
         "mean_value": float(df_mean[actual_var].mean()),
