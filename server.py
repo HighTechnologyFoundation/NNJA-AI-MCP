@@ -474,6 +474,11 @@ async def calculate_trend(
         "mean_value": float(df_mean[actual_var].mean()),
         "start_date": str(df_mean["OBS_DATE"].min()),
         "end_date": str(df_mean["OBS_DATE"].max()),
+        "units": {
+            "slope_per_day": "variable's native units per day",
+            "intercept": "variable's native units (value at start_date)",
+            "mean_value": "variable's native units",
+        },
     }
 
     return json.dumps(result)
@@ -515,7 +520,7 @@ async def calculate_spectral_index(
         end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
-        str: A JSON string with the calculated index statistics.
+        str: A JSON string with the calculated index statistics (index values in K, a brightness-temperature difference).
     """
     # Resolve the entered dataset for use in guard conditions
     try:
@@ -591,7 +596,7 @@ async def calculate_lapse_rate(
         end_time (str, optional): The end time for a time range to keep from the dataset in YYYY-MM-DD format, use if a range is wanted.
 
     Returns:
-        str: A JSON string with lapse rate statistics.
+        str: A JSON string with lapse rate statistics (lapse rate in K/km).
     """
     dataset = "conv-adpupa-NC002001"
 
@@ -669,6 +674,10 @@ async def calculate_lapse_rate(
         "raw_stats": {
             k: round(v, 2) if isinstance(v, (int, float)) else v
             for k, v in desc_stats.items()
+        },
+        "units": {
+            "lapse_rate": "K/km",
+            "stability_distribution": "percent of observations",
         },
     }
 
@@ -1089,6 +1098,10 @@ def _calculate_cloud_cooling_index(
             k: round(v, 2) if isinstance(v, (int, float)) else v
             for k, v in desc_stats.items()
         },
+        "units": {
+            "index_value": "K",
+            "index_distribution": "percent of observations",
+        },
     }
 
     return result
@@ -1137,6 +1150,10 @@ def _calculate_wildfire_risk_index(
         "raw_stats": {
             k: round(v, 2) if isinstance(v, (int, float)) else v
             for k, v in desc_stats.items()
+        },
+        "units": {
+            "index_value": "K",
+            "index_distribution": "percent of observations",
         },
     }
     return result

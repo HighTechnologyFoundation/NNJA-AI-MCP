@@ -196,6 +196,7 @@ def test_wildfire_index_is_night_boundaries():
     df = _wildfire_df([5, 6, 18, 19], [0.0, 0.0, 0.0, 0.0], btd=20.0, bt39=311.0)
     result = server._calculate_wildfire_risk_index(df, "bt39")
     assert result["summary"]["active_wildfire_pixels"] == 2
+    assert result["units"]["index_value"] == "K"
 
 
 @pytest.mark.parametrize(
@@ -231,7 +232,11 @@ def test_cloud_cooling_index_result_structure():
     )
     result = server._calculate_cloud_cooling_index(df, "bt108")
 
-    assert set(result) == {"summary", "index_distribution", "raw_stats"}
+    assert set(result) == {"summary", "index_distribution", "raw_stats", "units"}
+    assert result["units"] == {
+        "index_value": "K",
+        "index_distribution": "percent of observations",
+    }
     assert set(result["summary"]) == {
         "dominant_category",
         "mean_index_value",
